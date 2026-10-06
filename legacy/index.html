@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Rey del Amanecer - V0.25 (Final del Juego)</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <style>
+        body { margin: 0; background: #000; display: flex; justify-content: center; height: 100vh; align-items: center; }
+        canvas { border: 2px solid #555; }
+    </style>
+</head>
+<body>
+
+<script>
+const CONFIG = {
+    version: "V0.25 Final",
+    mapWidth: 600,
+    uiWidth: 250,
+    totalWidth: 850,
+    height: 600,
+    tileSize: 60,
+    gridSize: 10,
+    maxActions: 5,
+    colors: {
+        plain: 0x66cc66,
+        forest: 0x2d5a2d,
+        river: 0x3399ff,
+        mountain: 0x555555,
+        fog: 0x050505,
+        memory: 0x333333,
+        uiBg: 0x222222,
+        select: 0xffff00,
+        borderPlayer: 0x0088ff
+    }
+};
+
+class Entity extends Phaser.GameObjects.Sprite {
+    constructor(scene, x, y, texture, hp, maxHp, atk, foodCost) {
+        super(scene, x, y, texture);
+        scene.add.existing(this);
+        this.gridX = 0; this.gridY = 0;
+        this.hp = hp; this.maxHp = maxHp; this.atk = atk;
+        this.foodCost = foodCost || 0;
+        this.isDead = false;
+        this.setDepth(10);
+        this.hpBar = scene.add.graphics().setDepth(11);
+        scene.time.delayedCall(1, () => this.updateHpBar());
+    }
+
+    moveTo(gx, gy) {
+        this.gridX = gx; this.gridY = gy;
+        if (this.scene && typeof this.scene.getPixelCoord === 'function') {
+            const pixelPos = this.scene.getPixelCoord(gx, gy);
+            this.scene.tweens.add({ targets: [this], x: pixelPos.x, y: pixelPos.y, duration: 200, onUpdate: () => this.updateHpBar() });
+        }
+        this.updateHpBar();
+    }
+
+    takeDamage(amount) {
+        this.hp -= amount;
+        if(this.scene) {
+            let color = (this.texture.key === 'king') ? '#ff00ff' : '#ff0000';
+            let txt = this.scene.add.text(this.x, this.y - 40, `-${amount}`, { fontSize: '28px', color: color, fontStyle: 'bold', stroke: '#fff', strokeThickness: 2 }).setDepth(20);
+            this.scene.tweens.add({ targets: txt, y: this.y - 80, alpha: 0, duration: 1000, onComplete: () => txt.destroy() });
+        }
+
+        if (this.hp <= 0) {
+            this.hp = 0;
+            this.isDead = true;
+            this.hpBar.clear();
+            this.setVisible(false);
+            this.destroy();
+        } else {
+            this.updateHpBar();
+        }
+    }
+
+    updateHpBar() {
+        if (this.isDead || !this.active) { this.hpBar.clear(); return; }
+        this.hpBar.setVisible(this.visible);
+        if (!this.visible) return;
+        
+        if (!this.scene || typeof this.scene.getPixelCoord !== 'function') return;
+
+        const pixelPos = this.scene.getPixelCoord(this.gridX, this.gridY);
+        this.hpBar.clear();
+        this.hpBar.fillStyle(0x000000);
+        this.hpBar.fillRect(pixelPos.x - 20, pixelPos.y - 35, 40, 6);
+        this.hpBar.fillStyle(0x00ff00);
+        this.hpBar.fillRect(pixelPos.x - 20, pixelPos.y - 35, 40 * (this.hp / this.maxHp), 6);
+    }
+}
+
+class MainScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'MainScene' });
+        this.turn = 1;
+        this.state = 'DAY'; // Estados posibles: DAY, NIGHT_PROCESSING, FINISHED
+        this.resources = { food: 20, materials: 10 };
+        this.actions = CONFIG.maxActions;
+        this.caravans = 2;
+        this.grid = [];
+        this.enemies = [];
+        this.playerUnits = []; 
+        this.structures = [];
+        this.selectedUnit = null; 
+        this.selectorGraphic = null;
+        this.buildMode = null;
+        this.hasCamp = false; 
+        this.dailyProduction = { food: 0, mat: 0 };
+        this.dailyConsumption = 0;
+    }
+
+    preload() {
+        let g = this.make.graphics({add: false});
+        g.fillStyle(CONFIG.colors.plain); g.fillRect(0,0,58,58); g.generateTexture('tile_plain', 60, 60);
+        g.fillStyle(CONFIG.colors.forest); g.fillRect(0,0,58,58); g.generateTexture('tile_forest', 60, 60);
+        g.fillStyle(CONFIG.colors.river); g.fillRect(0,0,58,58); g.generateTexture('tile_river', 60, 60);
+        g.fillStyle(CONFIG.colors.mountain); g.fillRect(0,0,58,58); g.generateTexture('tile_mountain', 60, 60);
+        g.clear(); g.fillStyle(0x00ffff); g.fillRect(20, 10, 20, 40); g.generateTexture('tower', 60, 60);
+        g.clear(); g.fillStyle(0x8b4513); g.fillRect(10, 20, 40, 20); g.generateTexture('bridge', 60, 60);
+        g.clear(); g.fillStyle(0xffaa00); g.lineStyle(2, 0xffffff); g.fillTriangle(30, 10, 10, 50, 50, 50); g.strokeTriangle(30, 10, 10, 50, 50, 50); g.generateTexture('camp', 60, 60);
+        g.clear(); g.fillStyle(0x0000ff); g.fillCircle(30,30,20); g.generateTexture('player', 60, 60);
+        g.clear(); g.fillStyle(0xaaaaaa); g.fillRect(15,15,30,30); g.generateTexture('soldier', 60, 60); 
+        g.clear(); g.fillStyle(0xff0000); g.fillCircle(30,30,15); g.generateTexture('enemy', 60, 60);
+        g.clear(); g.fillStyle(0x9900ff); g.fillTriangle(30, 5, 5, 55, 55, 55); g.generateTexture('king', 60, 60);
+        g.clear(); g.lineStyle(4, CONFIG.colors.borderPlayer); g.strokeRect(0,0,60,60); g.generateTexture('border_territory', 60, 60);
+        g.clear(); g.lineStyle(4, 0xffff00); g.strokeRect(0,0,60,60); g.generateTexture('selector', 60, 60);
+    }
+
+    create() {
+        this.createMap();
+        this.uiBg = this.add.rectangle(CONFIG.mapWidth + CONFIG.uiWidth/2, CONFIG.height/2, CONFIG.uiWidth, CONFIG.height, CONFIG.colors.uiBg).setDepth(100);
+
+        this.createUI(); 
+
+        this.hero = new Entity(this, 0, 0, 'player', 80, 80, 10, 2); 
+        this.hero.moveTo(0, 0);
+        this.playerUnits.push(this.hero);
+        
+        this.claimTerritory(0, 0);
+
+        this.king = new Entity(this, 0, 0, 'king', 150, 150, 20, 0);
+        this.king.moveTo(CONFIG.gridSize-1, CONFIG.gridSize-1);
+        
+        this.selectorGraphic = this.add.image(0,0,'selector').setDepth(20).setVisible(false);
+
+        this.updateFog();
+        this.calculateEco(); 
+        
+        this.input.on('pointerdown', (pointer) => {
+            if (pointer.x >= CONFIG.mapWidth) return;
+            if (this.state !== 'DAY') return; // Bloquea input si no es de día
+
+            let gx = Math.floor(pointer.x / CONFIG.tileSize);
+            let gy = Math.floor(pointer.y / CONFIG.tileSize);
+
+            if (this.buildMode) { this.executeBuild(gx, gy); return; }
+
+            let clickedUnit = this.playerUnits.find(u => u.gridX === gx && u.gridY === gy && !u.isDead);
+            if (clickedUnit) { this.selectUnit(clickedUnit); return; }
+
+            if (this.selectedUnit && !this.selectedUnit.isDead) {
+                let target = this.enemies.find(e => e.gridX === gx && e.gridY === gy && !e.isDead);
+                // Fix Hitbox Rey
+                if (!target && this.king.gridX === gx && this.king.gridY === gy && !this.king.isDead) {
+                    target = this.king;
+                }
+
+                if (target) { this.tryAttack(this.selectedUnit, target); return; }
+                this.tryMove(this.selectedUnit, gx, gy);
+            }
+        });
+        
+        this.selectUnit(this.hero);
+    }
+
+    // === UTILS ===
+    getPixelCoord(gx, gy) { return { x: gx * CONFIG.tileSize + 30, y: gy * CONFIG.tileSize + 30 }; }
+    isValid(x, y) { return x>=0 && x<CONFIG.gridSize && y>=0 && y<CONFIG.gridSize; }
+    log(msg) { if (this.txtLog) this.txtLog.setText(msg); console.log(msg); }
+    isBlocked(x, y) { 
+        let cell = this.grid[y][x]; 
+        if (cell.type === 'mountain' || cell.type === 'river') return true; 
+        if (this.playerUnits.some(u => u.gridX === x && u.gridY === y && !u.isDead)) return true; 
+        if (this.enemies.some(u => u.gridX === x && u.gridY === y && !u.isDead)) return true; 
+        if (this.king && this.king.gridX === x && this.king.gridY === y && !this.king.isDead) return true;
+        return false; 
+    }
+    isWalkableForEnemy(x, y) { 
+        if (!this.isValid(x, y)) return false; 
+        let cell = this.grid[y][x]; 
+        if (cell.type === 'mountain') return false; 
+        if (cell.type === 'river' && (!cell.structure || cell.structure.type !== 'bridge')) return false; 
+        if (this.enemies.some(e => e.gridX === x && e.gridY === y && !e.isDead)) return false; 
+        if (this.playerUnits.some(u => u.gridX === x && u.gridY === y && !u.isDead)) return false; 
+        if (this.king && this.king.gridX === x && this.king.gridY === y) return false;
+        return true; 
+    }
+
+    // === NOCHE ===
+    startNightSequence() {
+        if (this.state !== 'DAY') return;
+        this.state = 'NIGHT_PROCESSING'; 
+        this.cancelBuild(); 
+        this.selectorGraphic.setVisible(false); 
+        this.txtTurn.setText("NOCHE..."); 
+        this.txtTurn.setColor('#ff0000');
+
+        this.time.delayedCall(5000, () => {
+            if (this.state === 'NIGHT_PROCESSING') { console.warn("Watchdog."); this.startNewDay(); }
+        });
+
+        try {
+            if(Math.random() > 0.4) { 
+                let spot = this.findFreeSpawnSpot(this.king.gridX, this.king.gridY);
+                if (spot) {
+                    let e = new Entity(this, 0, 0, 'enemy', 40, 40, 10, 0); e.moveTo(spot.x, spot.y); this.enemies.push(e); 
+                    this.log("¡Enemigo aparece!");
+                }
+            }
+        } catch(e) { console.error(e); }
+
+        let moveTime = 0;
+        this.enemies.forEach((e, index) => { 
+            if (e.isDead) return;
+            this.time.delayedCall(index * 300, () => { if(!e.isDead) this.moveEnemyAI(e); });
+            moveTime = (index * 300) + 500;
+        });
+
+        let stormTime = moveTime + 200;
+        if (Math.random() < 0.2) {
+            this.time.delayedCall(stormTime, () => this.triggerStorm());
+            stormTime += 500;
+        }
+
+        this.time.delayedCall(stormTime + 500, () => {
+            if (this.state === 'NIGHT_PROCESSING') this.startNewDay();
+        });
+    }
+
+    findFreeSpawnSpot(centerX, centerY) {
+        let candidates = [ {x:0, y:-1}, {x:0, y:1}, {x:-1, y:0}, {x:1, y:0}, {x:-1, y:-1}, {x:1, y:-1}, {x:-1, y:1}, {x:1, y:1} ];
+        candidates.sort(() => Math.random() - 0.5);
+        for (let offset of candidates) {
+            let tx = centerX + offset.x;
+            let ty = centerY + offset.y;
+            if (this.isValid(tx, ty) && !this.isBlocked(tx, ty)) return {x: tx, y: ty};
+        }
+        return null; 
+    }
+
+    moveEnemyAI(e) {
+        let target = this.hero; let minDist = 999;
+        this.playerUnits.forEach(u => { if (!u.isDead) { let d = Math.abs(u.gridX - e.gridX) + Math.abs(u.gridY - e.gridY); if (d < minDist) { minDist = d; target = u; } } });
+        if (minDist === 1) { 
+            target.takeDamage(10); 
+            this.cameras.main.shake(100, 0.01); 
+            
+            // DETECCIÓN DE DERROTA
+            if (target.isDead && target === this.hero) {
+                this.triggerGameOver(false);
+            }
+            return; 
+        }
+        let dx = target.gridX - e.gridX, dy = target.gridY - e.gridY; let stepX = 0, stepY = 0;
+        if (Math.abs(dx) >= Math.abs(dy)) stepX = Math.sign(dx); else stepY = Math.sign(dy);
+        let tx = e.gridX + stepX, ty = e.gridY + stepY;
+        if (!this.isWalkableForEnemy(tx, ty)) { if (stepX !== 0) { stepX = 0; stepY = Math.sign(dy); } else { stepY = 0; stepX = Math.sign(dx); } tx = e.gridX + stepX; ty = e.gridY + stepY; if (!this.isWalkableForEnemy(tx, ty)) return; }
+        let cell = this.grid[ty][tx]; if (cell.structure) this.handleStructureDestruction(cell);
+        e.moveTo(tx, ty);
+    }
+
+    startNewDay() {
+        this.state = 'DAY'; this.turn++; this.actions = CONFIG.maxActions; 
+        this.resources.food += (this.dailyProduction.food - this.dailyConsumption);
+        this.resources.materials += this.dailyProduction.mat;
+        if (this.resources.food < 0) this.resources.food = 0;
+        this.updateFog(); this.updateUI();
+        let netFood = this.dailyProduction.food - this.dailyConsumption;
+        let sign = netFood >= 0 ? "+" : "";
+        this.log(`DÍA ${this.turn}: Comida ${sign}${netFood} | Mat +${this.dailyProduction.mat}`);
+        if (!this.hero.isDead) this.selectUnit(this.hero);
+    }
+
+    // === COMBATE Y VICTORIA ===
+    tryAttack(attacker, defender) {
+        if (this.actions <= 0) { this.log("Sin tiempo."); return; }
+        let dist = Math.abs(attacker.gridX - defender.gridX) + Math.abs(attacker.gridY - defender.gridY);
+        if (dist !== 1) { this.log("Muy lejos."); return; }
+        this.actions--;
+        this.tweens.add({ targets: attacker, x: (attacker.x + defender.x) / 2, y: (attacker.y + defender.y) / 2, yoyo: true, duration: 100, onComplete: () => {
+                defender.takeDamage(attacker.atk);
+                
+                // CHEQUEO DE MUERTE
+                if (defender.isDead) { 
+                    if (defender === this.king) {
+                        // VICTORIA
+                        this.enemies = []; // Limpiar enemigos
+                        defender.destroy();
+                        this.triggerGameOver(true);
+                    } else {
+                        // Enemigo normal
+                        this.enemies = this.enemies.filter(e => e !== defender); 
+                        defender.destroy(); 
+                        this.resources.materials += 15; 
+                        this.log("Enemigo eliminado."); 
+                    }
+                } 
+                else { 
+                    // CONTRAATAQUE
+                    this.time.delayedCall(200, () => { 
+                        this.log("¡Contraataque!"); 
+                        attacker.takeDamage(defender.atk); 
+                        if (attacker.isDead) { 
+                            this.selectorGraphic.setVisible(false); 
+                            this.selectedUnit = null; 
+                            if (attacker === this.hero) this.triggerGameOver(false); 
+                        } 
+                    }); 
+                }
+                this.updateUI();
+        }});
+    }
+
+    // === SISTEMA DE FINAL DE PARTIDA ===
+    triggerGameOver(isVictory) {
+        this.state = 'FINISHED';
+        
+        // Fondo oscuro
+        let bg = this.add.rectangle(CONFIG.totalWidth/2, CONFIG.height/2, CONFIG.totalWidth, CONFIG.height, 0x000000, 0.85).setDepth(300);
+        
+        // Texto Principal
+        let msg = isVictory ? "¡VICTORIA!" : "DERROTA";
+        let color = isVictory ? '#ffd700' : '#ff0000';
+        this.add.text(CONFIG.totalWidth/2, CONFIG.height/2 - 50, msg, { fontSize: '64px', fontStyle: 'bold', color: color }).setOrigin(0.5).setDepth(301);
+
+        // Subtexto
+        let sub = isVictory ? `El Rey ha caído en el día ${this.turn}.` : "La oscuridad te ha consumido.";
+        this.add.text(CONFIG.totalWidth/2, CONFIG.height/2 + 20, sub, { fontSize: '24px', color: '#fff' }).setOrigin(0.5).setDepth(301);
+
+        // Botón Reiniciar
+        let btn = this.add.rectangle(CONFIG.totalWidth/2, CONFIG.height/2 + 100, 200, 50, 0x444444).setInteractive().setDepth(301);
+        let btnTxt = this.add.text(CONFIG.totalWidth/2, CONFIG.height/2 + 100, "JUGAR DE NUEVO", { fontSize: '20px', color: '#fff' }).setOrigin(0.5).setDepth(301);
+        
+        btn.on('pointerdown', () => {
+            location.reload(); // Recarga la página para reiniciar limpio
+        });
+        
+        btn.on('pointerover', () => btn.setFillStyle(0x666666));
+        btn.on('pointerout', () => btn.setFillStyle(0x444444));
+    }
+
+    // ... [Resto de funciones de lógica de juego] ...
+    claimTerritory(gx, gy) {
+        let cell = this.grid[gy][gx];
+        if (cell.owner !== 'player') {
+            cell.owner = 'player';
+            let overlay = this.add.image(cell.sprite.x, cell.sprite.y, 'border_territory').setDepth(0.5);
+            cell.overlay = overlay;
+            this.log("¡Territorio reclamado!");
+            this.calculateEco(); 
+        }
+    }
+
+    calculateEco() {
+        let foodProd = 0; let matProd = 0; let consumption = 0;
+        for(let row of this.grid) {
+            for(let cell of row) {
+                if(cell.owner === 'player') {
+                    if (cell.type === 'plain') foodProd += 1;
+                    if (cell.type === 'forest') matProd += 1;
+                }
+            }
+        }
+        if (this.hasCamp) foodProd += 3;
+        this.playerUnits.forEach(u => { if(!u.isDead) consumption += u.foodCost; });
+        this.dailyProduction = { food: foodProd, mat: matProd };
+        this.dailyConsumption = consumption;
+        this.updateUI();
+    }
+
+    recruitSoldier() {
+        if(this.state !== 'DAY') return;
+        if (this.resources.food < 20 || this.resources.materials < 10) { this.log("Falta: 20 Comida, 10 Mat."); return; }
+        let spawnX = -1, spawnY = -1; let neighbors = [[0,1], [0,-1], [1,0], [-1,0]];
+        for (let n of neighbors) { let tx = this.hero.gridX + n[0], ty = this.hero.gridY + n[1]; if (this.isValid(tx, ty) && !this.isBlocked(tx, ty)) { spawnX = tx; spawnY = ty; break; } }
+        if (spawnX === -1) { this.log("Sin espacio."); return; }
+        this.resources.food -= 20; this.resources.materials -= 10;
+        let s = new Entity(this, 0, 0, 'soldier', 40, 40, 20, 1); s.moveTo(spawnX, spawnY); this.playerUnits.push(s); this.log("Soldado reclutado."); this.calculateEco();
+    }
+
+    updateFog() {
+        for(let row of this.grid) for(let cell of row) cell.visible = false;
+        this.playerUnits.forEach(u => { if(!u.isDead) this.castVision(u.gridX, u.gridY, 1); });
+        for(let row of this.grid) for(let cell of row) if(cell.structure && cell.structure.type === 'tower') this.castVision(cell.x, cell.y, 1);
+        
+        for(let row of this.grid) for(let cell of row) {
+            if (cell.overlay) { cell.overlay.setVisible(cell.visible || cell.explored); cell.overlay.setAlpha(cell.visible ? 1 : 0.5); }
+            if(cell.visible) {
+                cell.sprite.clearTint();
+                if(cell.structure) { 
+                    cell.structure.sprite.setVisible(true); 
+                    cell.structure.sprite.setAlpha(1); 
+                    cell.structure.sprite.clearTint(); 
+                }
+            } else if(cell.explored) {
+                cell.sprite.setTint(CONFIG.colors.memory);
+                if(cell.structure) { 
+                    cell.structure.sprite.setVisible(true); 
+                    cell.structure.sprite.setAlpha(0.7); 
+                    cell.structure.sprite.clearTint(); 
+                }
+            } else {
+                cell.sprite.setTint(CONFIG.colors.fog);
+                if(cell.structure) cell.structure.sprite.setVisible(false);
+            }
+        }
+        this.enemies.forEach(e => { let v = this.grid[e.gridY][e.gridX].visible; e.setVisible(v); e.updateHpBar(); });
+        let kCell = this.grid[this.king.gridY][this.king.gridX];
+        this.king.setVisible(kCell.explored); this.king.updateHpBar();
+    }
+
+    createUI() {
+        const baseX = CONFIG.mapWidth + 20; const depth = 101;
+        this.title = this.add.text(baseX, 20, "REY DEL AMANECER", { fontSize: '20px', fontStyle: 'bold', color: '#ffd700' }).setDepth(depth);
+        this.txtTurn = this.add.text(baseX, 60, "DÍA 1", { fontSize: '22px' }).setDepth(depth);
+        this.txtActions = this.add.text(baseX, 90, `HORAS LUZ: ${this.actions}/${CONFIG.maxActions}`, { fontSize: '18px', color: '#00ffff', fontStyle: 'bold' }).setDepth(depth);
+        this.txtFood = this.add.text(baseX, 130, "Víveres: 20", { fontSize: '16px', color: '#88ff88' }).setDepth(depth);
+        this.txtMat = this.add.text(baseX, 160, "Materiales: 10", { fontSize: '16px', color: '#ffaa00' }).setDepth(depth);
+        this.txtLog = this.add.text(baseX, 420, "V0.25: Final Loop", { fontSize: '12px', color: '#ccc', wordWrap: { width: 210 }, maxLines: 6 }).setDepth(depth);
+        this.txtBoss = this.add.text(20, 20, "", { fontSize: '24px', color: '#ff00ff', fontStyle: 'bold', stroke: '#000', strokeThickness: 4 }).setDepth(200);
+
+        this.btnTower = this.createBtn(baseX, 200, "Torre (15 Mat)", () => this.activateBuildMode('tower', 15));
+        this.btnBridge = this.createBtn(baseX, 240, "Puente (20 Mat)", () => this.activateBuildMode('bridge', 20));
+        this.btnCamp = this.createBtn(baseX, 280, "Campamento (10 Mat)", () => this.activateBuildMode('camp', 10));
+        this.btnRecruit = this.createBtn(baseX, 320, "Reclutar (20F/10M)", () => this.recruitSoldier(), 0xaaaaaa);
+        this.btnCancel = this.createBtn(baseX, 360, "CANCELAR", () => this.cancelBuild(), 0xcc0000); this.btnCancel.container.setVisible(false);
+        this.btnCaravan = this.createBtn(baseX, 360, "PEDIR CARAVANA", () => this.callCaravan(), 0x0088ff); this.btnCaravan.container.setVisible(false);
+        this.btnEndDay = this.createBtn(baseX, 520, "DORMIR (Terminar Día)", () => this.startNightSequence(), 0xd35400);
+        this.txtVersion = this.add.text(CONFIG.totalWidth - 10, CONFIG.height - 10, CONFIG.version, { fontSize: '12px', color: '#666' }).setOrigin(1, 1).setDepth(101);
+    }
+    
+    updateUI() {
+        if(!this.txtFood) return;
+        this.txtTurn.setText(`DÍA ${this.turn}`); 
+        this.txtActions.setText(`HORAS LUZ: ${this.actions}/${CONFIG.maxActions}`);
+        this.txtActions.setColor(this.actions===0 ? '#ff0000' : '#00ffff');
+        let net = this.dailyProduction.food - this.dailyConsumption;
+        let color = net >= 0 ? '#88ff88' : '#ff5555';
+        let sign = net >= 0 ? '+' : '';
+        this.txtFood.setText(`Víveres: ${this.resources.food} (${sign}${net}/día)`);
+        this.txtFood.setColor(color);
+        this.txtMat.setText(`Materiales: ${this.resources.materials} (+${this.dailyProduction.mat}/día)`);
+        let showCaravan = (this.resources.food === 0 && this.caravans > 0 && this.state === 'DAY');
+        this.btnCaravan.container.setVisible(showCaravan); 
+        this.btnTower.container.setVisible(!showCaravan); 
+        this.btnBridge.container.setVisible(!showCaravan); 
+        this.btnCamp.container.setVisible(!showCaravan); 
+        this.btnRecruit.container.setVisible(!showCaravan);
+        
+        if (this.king && this.king.visible && !this.king.isDead) {
+            this.txtBoss.setText(`REY DE LA NOCHE: ${this.king.hp}/${this.king.maxHp}`);
+        } else if (this.king && this.king.isDead) {
+            this.txtBoss.setText("");
+        } else {
+            this.txtBoss.setText("");
+        }
+    }
+
+    createBtn(x, y, text, callback, color=0x444444) { 
+        let rect = this.add.rectangle(0, 0, 210, 35, color).setInteractive(); 
+        let txt = this.add.text(-95, -8, text, { fontSize: '13px', fill: '#fff' }); 
+        let container = this.add.container(x + 105, y, [rect, txt]).setDepth(102); 
+        rect.on('pointerdown', callback); 
+        return { container, rect, txt }; 
+    }
+
+    createMap() { 
+        for (let y = 0; y < CONFIG.gridSize; y++) { 
+            this.grid[y] = []; 
+            for (let x = 0; x < CONFIG.gridSize; x++) { 
+                let type = 'plain'; let r = Math.random(); 
+                if (r > 0.82) type = 'mountain'; else if (r > 0.60) type = 'forest'; 
+                if (Math.abs(x - y) === 2 || Math.abs(x - y) === -3) type = 'river'; 
+                let spr = this.add.image(x * CONFIG.tileSize + 30, y * CONFIG.tileSize + 30, 'tile_' + type); 
+                spr.setTint(CONFIG.colors.fog); 
+                this.grid[y][x] = { x, y, type, sprite: spr, explored: false, visible: false, structure: null, owner: null, overlay: null }; 
+            } 
+        } 
+        this.carvePath(0, 0, CONFIG.gridSize-1, CONFIG.gridSize-1); 
+        this.carvePath(0, 0, CONFIG.gridSize-1, CONFIG.gridSize-1); 
+        this.forceTile(0, 0, 'plain'); 
+        this.forceTile(CONFIG.gridSize-1, CONFIG.gridSize-1, 'plain'); 
+    }
+
+    carvePath(startX, startY, endX, endY) { 
+        let x = startX, y = startY; 
+        while (x !== endX || y !== endY) { 
+            let moveRight = (x < endX && (y === endY || Math.random() > 0.5)); 
+            if (moveRight) x++; else y++; 
+            let cell = this.grid[y][x]; 
+            if (cell.type === 'mountain' || cell.type === 'river') this.forceTile(x, y, Math.random() > 0.3 ? 'plain' : 'forest'); 
+        } 
+    }
+
+    forceTile(x, y, type) { 
+        this.grid[y][x].type = type; 
+        this.grid[y][x].sprite.setTexture('tile_' + type); 
+    }
+
+    callCaravan() { 
+        if(this.state !== 'DAY') return;
+        if (this.caravans > 0 && this.resources.food <= 0) { 
+            this.caravans--; 
+            this.resources.food += 15; 
+            this.log(`Caravana recibida.`); 
+            this.updateUI(); 
+        } 
+    }
+
+    cancelBuild() { 
+        this.buildMode = null; 
+        this.btnCancel.container.setVisible(false); 
+    }
+
+    castVision(cx, cy, r) { 
+        for(let y=cy-r; y<=cy+r; y++) for(let x=cx-r; x<=cx+r; x++) if(this.isValid(x, y)) { this.grid[y][x].visible = true; this.grid[y][x].explored = true; } 
+    }
+
+    activateBuildMode(type, cost) { 
+        if(this.state !== 'DAY') return;
+        if (this.actions <= 0) { this.log("Sin tiempo."); return; } 
+        if (this.resources.materials < cost) { this.log("Faltan materiales."); return; } 
+        if (type === 'camp' && this.hasCamp) { this.log("Ya tienes campamento."); return; } 
+        this.buildMode = { type, cost }; 
+        this.btnCancel.container.setVisible(true); 
+        this.log("Selecciona casilla."); 
+    }
+
+    executeBuild(gx, gy) {
+        let cell = this.grid[gy][gx];
+        let dist = Math.abs(gx - this.hero.gridX) + Math.abs(gy - this.hero.gridY);
+        if (dist > 1) { this.log("Muy lejos."); return; }
+        if (cell.structure) { this.log("Ocupado."); return; }
+        if (this.buildMode.type === 'bridge' && cell.type !== 'river') { this.log("Solo ríos."); return; }
+        if (this.buildMode.type === 'tower' && cell.type === 'river') { this.log("No en agua."); return; }
+        if (this.buildMode.type === 'camp') { if (cell.type !== 'forest') { this.log("Solo en bosques."); return; } if (this.hasCamp) return; }
+        this.actions--; this.resources.materials -= this.buildMode.cost;
+        let spr = this.add.image(cell.sprite.x, cell.sprite.y, this.buildMode.type).setDepth(2);
+        cell.structure = { type: this.buildMode.type, sprite: spr };
+        this.structures.push(cell.structure);
+        this.claimTerritory(gx, gy);
+        if (this.buildMode.type === 'camp') { this.hasCamp = true; this.log("Campamento listo."); } else this.log("Construcción completa.");
+        this.updateFog(); this.cancelBuild(); this.updateUI();
+    }
+
+    triggerStorm() { 
+        if (this.structures.length === 0) return; 
+        this.cameras.main.flash(200); 
+        let idx = Math.floor(Math.random() * this.structures.length); 
+        let s = this.structures[idx]; 
+        if (!s || !s.sprite) return; 
+        let gy = Math.floor(s.sprite.y / CONFIG.tileSize); 
+        let gx = Math.floor(s.sprite.x / CONFIG.tileSize); 
+        if (this.isValid(gx, gy)) { 
+            this.handleStructureDestruction(this.grid[gy][gx]); 
+            this.updateFog(); 
+            this.log("¡Tormenta destructiva!"); 
+        } 
+    }
+
+    handleStructureDestruction(cell) { 
+        if (!cell.structure) return; 
+        if (cell.structure.type === 'camp') { this.hasCamp = false; this.log("¡ALERTA! Campamento saqueado."); } 
+        else { this.log("Estructura destruida."); } 
+        cell.structure.sprite.destroy(); 
+        this.structures = this.structures.filter(s => s !== cell.structure); 
+        cell.structure = null; 
+        this.calculateEco(); 
+    }
+
+    tryMove(unit, gx, gy) {
+        if (this.actions <= 0) { this.log("Sin tiempo."); return; }
+        if (this.resources.food <= 0) { this.log("Hambriento."); return; }
+        let dist = Math.abs(gx - unit.gridX) + Math.abs(gy - unit.gridY);
+        if (dist !== 1) return;
+        let cell = this.grid[gy][gx];
+        if (cell.type === 'mountain') { this.log("Montaña."); return; }
+        if (cell.type === 'river' && (!cell.structure || cell.structure.type !== 'bridge')) { this.log("Necesitas puente."); return; }
+        if (this.playerUnits.some(u => u !== unit && u.gridX === gx && u.gridY === gy && !u.isDead)) { this.log("Ocupado."); return; }
+        
+        // FIX: No caminar sobre el rey
+        if (this.king && this.king.gridX === gx && this.king.gridY === gy && !this.king.isDead) { this.log("¡Es el Rey! ¡Ataca!"); return; }
+
+        let cost = (cell.type === 'forest') ? 2 : 1;
+        if (this.actions < cost) { this.log(`Falta Tiempo.`); return; }
+        if (this.resources.food < cost) { this.log(`Falta Comida.`); return; }
+        this.actions -= cost; this.resources.food -= cost;
+        unit.moveTo(gx, gy);
+        this.claimTerritory(gx, gy);
+        this.time.delayedCall(200, () => { let pos = this.getPixelCoord(unit.gridX, unit.gridY); this.selectorGraphic.setPosition(pos.x, pos.y); this.updateFog(); });
+        this.updateUI();
+    }
+
+    selectUnit(unit) { 
+        this.selectedUnit = unit; 
+        let pos = this.getPixelCoord(unit.gridX, unit.gridY); 
+        this.selectorGraphic.setPosition(pos.x, pos.y); 
+        this.selectorGraphic.setVisible(true); 
+        this.log(unit === this.hero ? "Héroe (Upkeep: 2)" : "Soldado (Upkeep: 1)"); 
+    }
+}
+
+const game = new Phaser.Game({ type: Phaser.AUTO, width: CONFIG.totalWidth, height: CONFIG.height, scene: MainScene });
+</script>
+</body>
+</html>

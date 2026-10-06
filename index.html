@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rey del Amanecer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="scene"></div>
+    <div id="labels"></div>
+    <div id="hud" class="hidden"></div>
+    <div id="tooltip" class="tooltip"></div>
+    <div id="banner" class="banner"></div>
+
+    <div id="title-screen" class="screen title on">
+      <div class="title-card">
+        <p class="kicker">Una leyenda por turnos</p>
+        <h1>Rey del <span>Amanecer</span></h1>
+        <p class="lead">
+          Levanta tu castillo, haz crecer el reino y explora con tu héroe.
+          Al caer la noche, las sombras vienen a por todo lo que has construido.
+        </p>
+        <div class="continue-wrap" id="continue-wrap">
+          <button class="btn primary wide" id="continue-btn">Continuar</button>
+          <small id="continue-info"></small>
+        </div>
+        <div class="difficulty" id="difficulty" role="radiogroup" aria-label="Dificultad"></div>
+        <p class="diff-desc" id="diff-desc"></p>
+        <div class="buttons">
+          <button class="btn" id="start-btn">Nueva partida</button>
+          <button class="btn ghost" id="help-btn">Cómo se juega</button>
+        </div>
+        <label class="seed">Semilla del mundo <input id="seed-input" spellcheck="false" /></label>
+      </div>
+    </div>
+
+    <div id="help" class="screen help">
+      <div class="screen-card wide">
+        <h2>Cómo se juega</h2>
+        <div class="help-grid">
+          <section>
+            <h3>El objetivo</h3>
+            <p>Derrota al <b>Rey de la Noche</b> o enciende el <b>Faro del Alba</b> y resiste 3 noches. Pierdes si cae tu <b>héroe</b> o tu <b>castillo</b>.</p>
+            <h3>El castillo</h3>
+            <p>Es el corazón del reino: produce víveres, alista tropas, dispara a las criaturas cercanas y define tu <b>territorio</b> dorado. Mejóralo (<kbd>C</kbd>) de Torreón a Ciudadela para ampliar el territorio, tener más cuadrillas de obra y desbloquear edificios.</p>
+            <h3>Construir</h3>
+            <p>Elige un edificio en la barra inferior y una casilla de tu territorio. Las obras tardan días y solo hay tantas a la vez como cuadrillas. Construir no gasta horas de luz.</p>
+            <h3>Economía</h3>
+            <p>Las <b>granjas</b> dan víveres, los <b>aserraderos</b> materiales, las <b>canteras</b> piedra y el <b>mercado</b> oro. Los edificios necesitan <b>habitantes</b> que trabajen: las <b>casas</b> dan plazas y la población crece si hay comida. Cada tropa alistada sale de tus habitantes.</p>
+          </section>
+          <section>
+            <h3>El héroe y las tropas</h3>
+            <p>Tienen <b>5 horas de luz</b> al día para moverse y atacar. Exploran, saquean <b>ruinas</b>, anexionan <b>aldeas</b>, visitan <b>santuarios</b> y destruyen <b>guaridas</b>. Si el objetivo sobrevive, contraataca (salvo a distancia: los <b>arqueros</b> disparan a 2 casillas). Cada aliado junto al objetivo suma un 25% de daño.</p>
+            <h3>La noche</h3>
+            <p>Las criaturas atacan a tus unidades, derriban edificios y asedian el castillo. Torres, murallas y el propio castillo te defienden. Las casillas <b>rojas</b> muestran dónde pueden golpear esta noche. El Rey despierta tarde o temprano, o antes si te acercas.</p>
+            <h3>Controles</h3>
+            <ul class="keys">
+              <li><kbd>Clic</kbd> seleccionar, mover y atacar · clic en el castillo para abrirlo</li>
+              <li><kbd>Arrastrar</kbd> girar · <kbd>Clic der.</kbd> desplazar · <kbd>Rueda</kbd> zoom · <kbd>WASD</kbd> <kbd>Q</kbd><kbd>E</kbd></li>
+              <li><kbd>1</kbd>–<kbd>0</kbd> construir · <kbd>Mayús</kbd>+clic encadena obras · <kbd>C</kbd> castillo</li>
+              <li><kbd>Tab</kbd> siguiente unidad · <kbd>F</kbd> centrar · <kbd>Espacio</kbd> dormir</li>
+              <li><kbd>T</kbd> amenaza · <kbd>M</kbd> silencio · <kbd>H</kbd> ayuda · la partida se guarda sola</li>
+            </ul>
+          </section>
+        </div>
+        <div class="buttons"><button class="btn primary" id="help-close">Entendido</button></div>
+      </div>
+    </div>
+
+    <div id="end-screen" class="screen end"></div>
+    <div id="settings" class="screen settings"></div>
+    <div id="omen" class="omen"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
