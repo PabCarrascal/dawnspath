@@ -5,9 +5,11 @@ export default defineConfig({
   build: {
     target: 'es2022',
     rollupOptions: {
+      // El juego en la raíz y el banco de pruebas del combate aparte.
+      input: { main: 'index.html', combat: 'combat.html' },
       output: {
-        // Three.js en su propio chunk: cambia poco y se cachea aparte.
-        manualChunks: { three: ['three'] },
+        // PixiJS en su propio chunk: cambia poco y se cachea aparte.
+        manualChunks: { pixi: ['pixi.js'] },
       },
     },
   },
