@@ -2,6 +2,7 @@ import { Rng } from '../../core/rng';
 import type { Combat } from '../../combat/rules/Combat';
 import { Encounter, Recruit, UNITS } from '../../combat/rules/data';
 import { BUILDINGS, CBAL, KIND_NAMES, MAP, NAMES, NIGHT_FOES, NODE, RECRUIT_COST, START, STRUCTURES } from './data';
+import { EVENT, EVENTS, EventApi, EventDef } from './events';
 import type {
   ActionResult,
   BuildingId,
@@ -10,6 +11,7 @@ import type {
   NodeState,
   NodeStatus,
   PendingCombat,
+  PendingEvent,
   Resources,
   Soldier,
   SoldierKind,
@@ -42,10 +44,19 @@ export class Campaign {
     this.rng = new Rng(seed);
     const nodes: Record<string, NodeState> = {};
     for (const n of MAP) {
-      nodes[n.id] = { seen: n.id === 'castle' || n.id === 'prado', foes: [...n.foes], everCleared: n.id === 'castle', looted: false, structure: null, garrison: [] };
+      nodes[n.id] = {
+        seen: n.id === 'castle' || n.id === 'prado',
+        foes: [...n.foes],
+        everCleared: n.id === 'castle' || (n.type === 'village' && !n.foes.length),
+        looted: false,
+        structure: null,
+        garrison: [],
+        dark: !!n.source,
+        uses: n.prayers ?? 0,
+      };
     }
     this.state = {
-      version: 1,
+      version: 2,
       seed,
       rng: 0,
       day: 1,
@@ -57,6 +68,10 @@ export class Campaign {
       nodes,
       exp: null,
       pending: null,
+      event: null,
+      eventsSeen: [],
+      darkClock: CBAL.darkEvery,
+      siege: null,
       report: null,
       stats: { expeditions: 0, battles: 0, deaths: 0, nights: 0 },
       nextId: 1,
@@ -64,6 +79,11 @@ export class Campaign {
     for (const s of START.soldiers) this.addSoldier(s.kind, s.name);
     this.rollRecruits();
     this.sync();
+  }
+
+  /** La campaña ha terminado (getter: TypeScript no estrecha el tipo a través de él). */
+  get over() {
+    return this.state.phase === 'lost' || this.state.phase === 'won';
   }
 
   /** Guarda la posición del generador aleatorio en el estado (para el guardado). */
@@ -112,6 +132,18 @@ export class Campaign {
     if (!n.seen) return 'unknown';
     if (n.foes.length) return n.everCleared ? 'lost' : 'hostile';
     return n.structure && n.garrison.length ? 'secured' : 'cleared';
+  }
+
+  /** Duerme a cubierto: campamento, torre o una aldea libre. */
+  sheltered(id: string) {
+    const n = this.node(id);
+    return !!n.structure || (NODE[id].type === 'village' && !n.foes.length);
+  }
+
+  /** Precio de los víveres en la aldea del nodo (puede subir por los sucesos). */
+  villagePrice(id: string) {
+    const v = NODE[id].village;
+    return v ? v.foodPrice + (this.state.villagePrices?.[id] ?? 0) : 0;
   }
 
   /** Horas que cuesta llegar a un nodo vecino. */
@@ -208,7 +240,8 @@ export class Campaign {
     }
     const log: LogLine[] = [{ text: `Pasa un día en el castillo (${CBAL.rest.castle.stress} de estrés para todos).`, tone: 'info' }];
     log.push(...this.remoteNight(null));
-    this.state.day++;
+    log.push(...this.advanceDay());
+    if (this.over) return { ok: true, log };
     this.rollRecruits();
     if (log.length > 1) this.state.report = { title: `Noticias del sendero · día ${this.state.day}`, lines: log };
     this.sync();
@@ -254,7 +287,6 @@ export class Campaign {
     if (party.some((s) => !s?.alive || s.where !== 'castle')) return fail('Hay soldados que no están disponibles.');
     if (!party.some((s) => s!.kind === 'hero')) return fail('El héroe encabeza cada expedición.');
     const st = this.state.stock;
-    if (st.food < ids.length) return fail('Lleva al menos una ración por soldado.');
     for (const s of party) s!.where = 'party';
     this.state.exp = {
       party: [...ids],
@@ -283,6 +315,7 @@ export class Campaign {
   private onRoad(): string | null {
     if (this.state.phase !== 'expedition' || !this.state.exp) return 'No hay expedición en curso.';
     if (this.state.pending) return 'Primero hay que resolver el combate.';
+    if (this.state.event) return 'Primero hay que decidir qué hacer.';
     return null;
   }
 
@@ -309,16 +342,179 @@ export class Campaign {
     const log: LogLine[] = [{ text: `El grupo llega a ${NODE[to].name} (${cost} h).`, tone: 'info' }];
 
     if (to === 'castle') return this.returnHome(log);
+    const enter = NODE[to].enterStress;
+    if (enter) {
+      for (const s of this.party) s.stress = clamp(s.stress + enter, 0, 200);
+      log.push({ text: `${NODE[to].name} pesa en el ánimo: +${enter} de estrés.`, tone: 'bad' });
+    }
     if (n.foes.length) {
-      log.push({ text: firstTime ? 'Hay criaturas esperando.' : 'Las criaturas guardan el paso.', tone: 'bad' });
+      log.push({ text: n.dark ? 'La oscuridad cubre el lugar. Aquí siempre es de noche.' : firstTime ? 'Hay criaturas esperando.' : 'Las criaturas guardan el paso.', tone: 'bad' });
       return { ok: true, log, combat: this.startCombat('node', to, n.foes, false) };
     }
-    if (this.status(to) === 'cleared' && this.rng.chance(CBAL.roadAmbush)) {
+    if (this.status(to) === 'cleared' && NODE[to].type !== 'village' && this.rng.chance(n.dark ? CBAL.roadAmbush * 2 : CBAL.roadAmbush)) {
       log.push({ text: 'Sin nadie de guardia, algo os acechaba entre la maleza.', tone: 'bad' });
       return { ok: true, log, combat: this.startCombat('road', to, NIGHT_FOES[0], false) };
     }
+    const event = this.rollEvent(to);
     this.sync();
-    return { ok: true, log };
+    return event ? { ok: true, log, event } : { ok: true, log };
+  }
+
+  // ───────────────────────── sucesos ─────────────────────────
+
+  /** Al llegar a un nodo tranquilo: el suceso propio del lugar o, a veces, uno del camino. */
+  private rollEvent(id: string, road = true): PendingEvent | undefined {
+    const def = NODE[id];
+    const n = this.node(id);
+    let ev: EventDef | undefined;
+    if (!n.visited && def.type === 'village' && !n.foes.length) ev = EVENT[n.everCleared && def.foes.length ? 'liberada' : 'aldea'];
+    else if (!n.visited && def.type === 'shrine' && !n.foes.length) ev = EVENT.ermitano;
+    if (ev) n.visited = true;
+    else if (road && this.rng.chance(CBAL.eventChance)) {
+      const api = this.eventApi(id);
+      const pool = EVENTS.filter((e) => e.where === 'road' && !(e.once && this.state.eventsSeen.includes(e.id)) && (!e.when || e.when(api)));
+      if (pool.length) ev = this.rng.pick(pool);
+    }
+    if (!ev) return undefined;
+    if (ev.once || ev.where !== 'road') this.state.eventsSeen.push(ev.id);
+    this.state.event = { id: ev.id, node: id };
+    return this.state.event;
+  }
+
+  /** Motivo por el que una opción del suceso no se puede elegir, o null. */
+  eventBlock(i: number): string | null {
+    const ev = this.state.event;
+    const c = ev && EVENT[ev.id].choices[i];
+    if (!ev || !c) return 'No hay suceso.';
+    return c.can?.(this.eventApi(ev.node)) ?? null;
+  }
+
+  /** Elige una opción del suceso pendiente. */
+  choose(i: number): ActionResult {
+    const ev = this.state.event;
+    if (!ev) return fail('No hay suceso.');
+    const choice = EVENT[ev.id].choices[i];
+    if (!choice) return fail('Opción no válida.');
+    const block = this.eventBlock(i);
+    if (block) return fail(block);
+    this.state.event = null;
+    const log = choice.run(this.eventApi(ev.node));
+    this.sync();
+    return this.state.pending ? { ok: true, log, combat: this.state.pending } : { ok: true, log };
+  }
+
+  private eventApi(id: string): EventApi {
+    const e = () => this.state.exp!;
+    return {
+      chance: (p) => this.rng.chance(p),
+      int: (lo, hi) => this.rng.int(lo, hi),
+      stress: (n) => {
+        for (const s of this.party) s.stress = clamp(s.stress + n, 0, 200);
+      },
+      heal: (frac) => {
+        for (const s of this.party) s.hp = Math.min(this.maxHp(s), s.hp + Math.round(this.maxHp(s) * frac));
+      },
+      hurt: (n) => {
+        for (const s of this.party) s.hp = Math.max(1, s.hp - n);
+      },
+      food: (n) => (e().food = clamp(e().food + n, 0, CBAL.foodCap)),
+      torches: (n) => (e().torches = clamp(e().torches + n, 0, CBAL.torchCap)),
+      bag: (r) => {
+        for (const k of RES) e().bag[k] = Math.max(0, e().bag[k] + (r[k] ?? 0));
+      },
+      gold: () => e().bag.gold,
+      foodLeft: () => e().food,
+      hoursLeft: () => e().hours,
+      hours: (n) => (e().hours = Math.max(0, e().hours - n)),
+      recruit: (kind, name) => {
+        const s = this.addSoldier(kind, name);
+        if (e().party.length < CBAL.partyMax) {
+          s.where = 'party';
+          e().party.push(s.id);
+          return 'con el grupo';
+        }
+        return 'al castillo a esperar';
+      },
+      fight: (foes) => void this.startCombat('road', id, foes, false),
+      reveal: () => {
+        const hidden = NODE[id].links.filter((l) => !this.node(l).seen);
+        for (const l of hidden) this.node(l).seen = true;
+        return hidden.map((l) => NODE[l].name);
+      },
+      dark: () => this.node(id).dark,
+      extraPrayer: () => void this.node(id).uses++,
+      villagePrice: (d) => {
+        this.state.villagePrices = { ...(this.state.villagePrices ?? {}), [id]: (this.state.villagePrices?.[id] ?? 0) + d };
+      },
+      freeHire: () => {
+        this.state.freeHire = [...(this.state.freeHire ?? []), id];
+      },
+    };
+  }
+
+  // ───────────────────────── aldeas y ermitas ─────────────────────────
+
+  /** Compra víveres en la aldea con el oro de la caravana. */
+  trade(n: number): ActionResult {
+    const err = this.onRoad();
+    if (err) return fail(err);
+    const e = this.state.exp!;
+    const def = NODE[e.node];
+    if (!def.village || this.node(e.node).foes.length) return fail('Aquí no hay a quién comprar.');
+    const price = this.villagePrice(e.node);
+    n = Math.min(n, CBAL.foodCap - e.food);
+    if (n <= 0) return fail(`Como mucho ${CBAL.foodCap} víveres.`);
+    if (e.bag.gold < price * n) return fail(`Hacen falta ${price * n} de oro en la caravana.`);
+    e.bag.gold -= price * n;
+    e.food += n;
+    this.sync();
+    return { ok: true, log: [{ text: `Compráis ${n} víveres por ${price * n} de oro.`, tone: 'good' }] };
+  }
+
+  /** Coste del recluta de la aldea (0 si se ofreció gratis). */
+  hireCost(id: string) {
+    return this.state.freeHire?.includes(id) ? 0 : CBAL.villageHire;
+  }
+
+  /** Contrata al recluta de la aldea; se une al grupo. */
+  hire(): ActionResult {
+    const err = this.onRoad();
+    if (err) return fail(err);
+    const e = this.state.exp!;
+    const def = NODE[e.node];
+    const n = this.node(e.node);
+    if (!def.village || n.foes.length) return fail('Aquí no hay nadie que contratar.');
+    if (n.uses) return fail(`${def.village.name} ya está con vosotros.`);
+    if (e.party.length >= CBAL.partyMax) return fail('El grupo está completo.');
+    const cost = this.hireCost(e.node);
+    if (e.bag.gold < cost) return fail(`Hacen falta ${cost} de oro en la caravana.`);
+    e.bag.gold -= cost;
+    n.uses = 1;
+    const s = this.addSoldier(def.village.recruit, def.village.name);
+    s.where = 'party';
+    e.party.push(s.id);
+    this.sync();
+    return { ok: true, log: [{ text: `${s.name} (${KIND_NAMES[s.kind]}) se une al grupo.`, tone: 'good' }] };
+  }
+
+  /** Reza en la ermita: cura, baja el estrés y quita las aflicciones. */
+  pray(): ActionResult {
+    const err = this.onRoad();
+    if (err) return fail(err);
+    const e = this.state.exp!;
+    const n = this.node(e.node);
+    if (NODE[e.node].type !== 'shrine' || n.foes.length) return fail('Aquí no hay dónde rezar.');
+    if (n.uses <= 0) return fail('La llama de la ermita se ha apagado.');
+    const noLight = this.spend(CBAL.pray.hours);
+    if (noLight) return fail(noLight);
+    n.uses--;
+    for (const s of this.party) {
+      s.hp = Math.min(this.maxHp(s), s.hp + Math.round(this.maxHp(s) * CBAL.pray.heal));
+      s.stress = clamp(s.stress + CBAL.pray.stress, 0, 200);
+      s.affliction = null;
+    }
+    this.sync();
+    return { ok: true, log: [{ text: `La llama del alba os reconforta: vida, temple y ${-CBAL.pray.stress} menos de estrés. ${n.uses ? `Le quedan ${n.uses} rezos.` : 'La llama se apaga.'}`, tone: 'good' }] };
   }
 
   /** Explora los nodos vecinos: revela qué los defiende. */
@@ -458,7 +654,7 @@ export class Campaign {
     const n = this.node(node);
     const lodge = this.state.buildings.lodge;
     const fort = n.structure === 'tower' ? (lodge >= 3 ? 0.18 : 0.12) : 0;
-    this.state.pending = { kind, node, seed: this.rng.int(1, 1e9), night, foes: [...foes], fort: kind === 'node' ? 0 : fort };
+    this.state.pending = { kind, node, seed: this.rng.int(1, 1e9), night: night || n.dark, foes: [...foes], fort: kind === 'node' ? 0 : fort };
     this.sync();
     return this.state.pending;
   }
@@ -521,12 +717,25 @@ export class Campaign {
       const gold = kills * CBAL.goldPerFoe;
       e.bag.gold += gold;
       log.push({ text: `Victoria. Botín de las criaturas: ${gold} de oro.`, tone: 'good' });
+      const def = NODE[p.node];
       if (p.kind === 'node' || n.foes.length) {
         n.foes = [];
         n.everCleared = true;
       }
-      if (!p.night) e.hours = Math.max(0, e.hours - CBAL.combatHours);
-      if (NODE[p.node].boss) return this.win(log);
+      if (n.dark) {
+        n.dark = false;
+        log.push({ text: `La luz vuelve a ${def.name}.`, tone: 'good' });
+      }
+      if (def.source && !def.boss && !n.destroyed) {
+        n.destroyed = true;
+        this.state.darkClock += CBAL.darkEvery;
+        for (const l of def.links) this.node(l).dark = false;
+        log.push({ text: `El ${def.name.toLowerCase()} se derrumba. La oscuridad retrocede y tardará más en volver.`, tone: 'good' });
+      }
+      if (p.kind !== 'ambush') e.hours = Math.max(0, e.hours - CBAL.combatHours);
+      if (def.boss) return this.win(log);
+      // Tras un combate solo salen los sucesos propios del lugar (aldea liberada, ermita).
+      if (p.kind === 'node') this.rollEvent(p.node, false);
     } else if (outcome === 'fled') {
       const downed = party.find((f) => f.downed);
       log.push(
@@ -534,19 +743,20 @@ export class Campaign {
           ? { text: `${downed.name} cae abatido. El grupo se retira cargando con él.`, tone: 'bad' }
           : { text: 'El grupo se retira.', tone: 'bad' },
       );
-      if (!p.night && e.prev && p.kind === 'node') {
+      if (e.prev && p.kind === 'node') {
         e.node = e.prev;
         e.prev = null;
       }
-      if (!p.night) e.hours = Math.max(0, e.hours - CBAL.fleeHours);
+      if (p.kind !== 'ambush') e.hours = Math.max(0, e.hours - CBAL.fleeHours);
     }
-    if (p.night) {
+    if (p.kind === 'ambush') {
       log.push(...this.dawn(p.rest ?? { rough: true, torch: false }));
       this.state.report = { title: `Amanecer del día ${this.state.day}`, lines: [...(this.state.report?.lines ?? []), ...log] };
+      if (this.over) return { ok: true, log };
     }
     if (e.node === 'castle') return this.returnHome(log);
     this.sync();
-    return { ok: true, log };
+    return this.state.event ? { ok: true, log, event: this.state.event } : { ok: true, log };
   }
 
   private bury(s: Soldier, fate: string) {
@@ -566,9 +776,13 @@ export class Campaign {
     if (err) return fail(err);
     const e = this.state.exp!;
     const here = this.node(e.node);
-    const rough = !here.structure;
+    const rough = !this.sheltered(e.node);
     const log: LogLine[] = [];
     this.state.stats.nights++;
+    if (here.dark) {
+      for (const s of this.party) s.stress = clamp(s.stress + CBAL.darkNightStress, 0, 200);
+      log.push({ text: `Una noche en la oscuridad: +${CBAL.darkNightStress} de estrés.`, tone: 'bad' });
+    }
 
     // Víveres: al raso se come más.
     const need = rough ? Math.ceil(e.party.length * 1.5) : e.party.length;
@@ -590,7 +804,8 @@ export class Campaign {
     // ¿Emboscada donde duerme el grupo?
     const torch = rough && e.torches > 0;
     if (torch) e.torches--;
-    const chance = here.structure === 'tower' ? CBAL.ambush.tower : here.structure === 'camp' ? CBAL.ambush.camp : torch ? CBAL.ambush.roughTorch : CBAL.ambush.rough;
+    const base = here.structure === 'tower' ? CBAL.ambush.tower : !rough ? CBAL.ambush.camp : torch ? CBAL.ambush.roughTorch : CBAL.ambush.rough;
+    const chance = here.dark ? Math.min(0.9, base * 1.6) : base;
     const rest = { rough, torch };
     if (this.rng.chance(chance)) {
       const tier = Math.min(NIGHT_FOES.length - 1, Math.floor((this.state.day - 1) / 3));
@@ -601,9 +816,75 @@ export class Campaign {
       return { ok: true, log, combat };
     }
     log.push(...this.dawn(rest));
-    this.state.report = { title: `Amanecer del día ${this.state.day}`, lines: log };
+    this.state.report = { title: this.state.phase === 'lost' ? 'La última noche' : `Amanecer del día ${this.state.day}`, lines: log };
     this.sync();
     return { ok: true, log };
+  }
+
+  // ───────────────────────── oscuridad ─────────────────────────
+
+  /** Pasa un día: avanza el reloj de la oscuridad y el asedio. */
+  private advanceDay(): LogLine[] {
+    const log: LogLine[] = [];
+    this.state.day++;
+    this.state.darkClock--;
+    if (this.state.darkClock <= 0) {
+      this.state.darkClock = CBAL.darkEvery;
+      log.push(...this.spreadDarkness());
+    }
+    const threatened = NODE.castle.links.some((l) => this.node(l).dark);
+    if (threatened) {
+      if (this.state.siege === null) {
+        this.state.siege = CBAL.siegeDays;
+        log.push({ text: `¡La oscuridad llega a las puertas del castillo! Si no retrocede, caerá en ${CBAL.siegeDays} días.`, tone: 'bad' });
+      } else {
+        this.state.siege--;
+        if (this.state.siege <= 0) {
+          this.lose('La oscuridad ha engullido el castillo del Alba.', log);
+          return log;
+        }
+        log.push({ text: `Asedio: el castillo resistirá ${this.state.siege} ${this.state.siege === 1 ? 'día' : 'días'} más.`, tone: 'bad' });
+      }
+      for (const s of this.state.soldiers) if (s.alive && s.where === 'castle') s.stress = clamp(s.stress + 8, 0, 200);
+    } else if (this.state.siege !== null) {
+      this.state.siege = null;
+      log.push({ text: 'La oscuridad se aleja de las murallas. El asedio termina.', tone: 'good' });
+    }
+    return log;
+  }
+
+  /** Nodos que la oscuridad cubrirá en su próximo avance. */
+  darkFrontier(): string[] {
+    const here = this.state.exp?.node;
+    return MAP.filter((d) => {
+      const n = this.node(d.id);
+      if (d.id === 'castle' || n.dark || n.destroyed || d.id === here) return false;
+      return d.links.some((l) => this.node(l).dark);
+    }).map((d) => d.id);
+  }
+
+  /** La oscuridad avanza un paso desde cada nodo oscuro. Los nodos asegurados resisten. */
+  private spreadDarkness(): LogLine[] {
+    const log: LogLine[] = [];
+    const covered: string[] = [];
+    for (const id of this.darkFrontier()) {
+      const n = this.node(id);
+      if (n.garrison.length && n.structure) {
+        const lines = this.nightAttack(id, CBAL.darkAttack, true);
+        if (n.garrison.length) {
+          log.push({ text: `La guarnición de ${NODE[id].name} contiene a la oscuridad.`, tone: 'good' });
+          continue;
+        }
+        log.push(...lines);
+      }
+      n.dark = true;
+      covered.push(NODE[id].name);
+      if (!n.foes.length) n.foes = [...NODE[id].regen];
+      else if (n.foes.length < 4) n.foes.push('shade');
+      n.structure = null;
+    }
+    if (covered.length) log.push({ text: `La oscuridad avanza: cubre ${covered.join(', ')}.`, tone: 'bad' });
+    return log;
   }
 
   /** La noche en el resto del sendero: guarniciones atacadas y nodos que se pierden. */
@@ -614,7 +895,7 @@ export class Campaign {
       const n = this.node(def.id);
       if (n.foes.length || !n.everCleared) continue;
       if (n.garrison.length) log.push(...this.nightAttack(def.id));
-      else if (!def.links.includes('castle') && this.rng.chance(CBAL.retake)) {
+      else if ((n.dark || !def.links.includes('castle')) && this.rng.chance(n.dark ? CBAL.retake * 2 : CBAL.retake)) {
         n.foes = [...def.regen];
         const burnt = n.structure;
         n.structure = null;
@@ -625,14 +906,14 @@ export class Campaign {
   }
 
   /** Ataque nocturno a una guarnición, resuelto sin escena. */
-  private nightAttack(id: string): LogLine[] {
+  private nightAttack(id: string, extra = 0, force = false): LogLine[] {
     const n = this.node(id);
     const def = NODE[id];
-    if (!this.rng.chance(CBAL.garrisonAttack)) return [];
+    if (!force && !this.rng.chance(n.dark ? CBAL.garrisonAttack * 1.5 : CBAL.garrisonAttack)) return [];
     const guards = n.garrison.map((g) => this.soldier(g)!);
     const structure = n.structure ? STRUCTURES[n.structure].defense + (n.structure === 'tower' && this.state.buildings.lodge >= 3 ? 0.5 : 0) : 0;
     const defense = structure + guards.reduce((a, s) => a + (1 + this.level(s) * 0.25) * (0.5 + (0.5 * s.hp) / this.maxHp(s)) * (s.affliction ? 0.7 : 1), 0);
-    const attack = this.rng.range(0.8, 2.6) + this.state.day * 0.08;
+    const attack = this.rng.range(0.8, 2.6) + this.state.day * 0.08 + extra;
     if (defense >= attack) {
       const soft = n.structure === 'tower' ? 0.5 : 1;
       for (const s of guards) {
@@ -676,7 +957,7 @@ export class Campaign {
       lines.push({ text: 'El campamento da cobijo: el grupo se cura algo y descansa.', tone: 'good' });
     }
     for (const s of this.party) if (s.affliction && s.stress < 40) s.affliction = null;
-    this.state.day++;
+    lines.push(...this.advanceDay());
     e.days++;
     e.hours = e.maxHours - (rest.rough ? CBAL.roughNightHours : 0);
     return lines;
@@ -704,7 +985,8 @@ export class Campaign {
     this.state.exp = null;
     this.state.phase = 'castle';
     log.push(...this.remoteNight(null));
-    this.state.day++;
+    log.push(...this.advanceDay());
+    if (this.over) return { ok: true, log };
     this.rollRecruits();
     this.state.report = { title: 'Regreso al castillo', lines: [...log] };
     this.sync();

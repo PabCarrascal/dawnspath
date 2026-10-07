@@ -167,7 +167,7 @@ export interface Recruit {
   bonus?: { maxHp?: number; dmg?: number; prot?: number; acc?: number };
 }
 
-export type Biome = 'meadow' | 'forest' | 'ruins' | 'ford' | 'lair' | 'castle';
+export type Biome = 'meadow' | 'forest' | 'ruins' | 'ford' | 'lair' | 'castle' | 'village' | 'shrine' | 'mountain' | 'bog';
 
 export interface Encounter {
   id: string;

@@ -1,5 +1,6 @@
 import './combat.css';
 import { audio } from '../audio/Audio';
+import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from './rules/Combat';
 import { ENCOUNTERS } from './rules/data';
 import type { Fighter } from './rules/types';
@@ -10,6 +11,7 @@ const params = new URLSearchParams(location.search);
 const encId = params.get('enc');
 const seed = Number(params.get('seed') ?? Math.floor(Math.random() * 1e9)) >>> 0;
 
+mountSoundControl();
 if (!encId || !ENCOUNTERS.some((e) => e.id === encId)) showMenu();
 else void run(encId, seed);
 

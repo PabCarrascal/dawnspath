@@ -197,6 +197,43 @@ function column(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, 
   ctx.restore();
 }
 
+/** Casita de aldea: muros, tejado a dos aguas y una ventana encendida. */
+function cottage(ctx: CanvasRenderingContext2D, rng: Rng, x: number, y: number, s: number, wall: string, roof: string, light: string) {
+  const w = (70 + rng.next() * 40) * s;
+  const h = (50 + rng.next() * 25) * s;
+  ctx.fillStyle = wall;
+  ctx.fillRect(x - w / 2, y - h, w, h);
+  ctx.fillStyle = roof;
+  ctx.beginPath();
+  ctx.moveTo(x - w / 2 - 8 * s, y - h);
+  ctx.lineTo(x + (rng.next() - 0.5) * 10 * s, y - h - (34 + rng.next() * 18) * s);
+  ctx.lineTo(x + w / 2 + 8 * s, y - h);
+  ctx.fill();
+  if (rng.chance(0.7)) {
+    ctx.fillStyle = light;
+    ctx.fillRect(x - 6 * s + (rng.next() - 0.5) * w * 0.4, y - h * 0.65, 11 * s, 13 * s);
+  }
+  if (rng.chance(0.5)) {
+    ctx.fillStyle = wall;
+    ctx.fillRect(x + w * 0.2, y - h - 40 * s, 10 * s, 26 * s);
+  }
+}
+
+/** Peñasco dentado para el paso de montaña. */
+function crag(ctx: CanvasRenderingContext2D, rng: Rng, x: number, y: number, w: number, h: number, color: string) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(x - w / 2, y);
+  const steps = 7;
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const peak = Math.sin(t * Math.PI) * h * (0.6 + rng.next() * 0.5);
+    ctx.lineTo(x - w / 2 + w * t + (rng.next() - 0.5) * 18, y - peak);
+  }
+  ctx.lineTo(x + w / 2, y);
+  ctx.fill();
+}
+
 function reeds(ctx: CanvasRenderingContext2D, rng: Rng, x: number, y: number, color: string) {
   ctx.save();
   ctx.strokeStyle = color;
@@ -279,7 +316,24 @@ export function paintBackdrop(time: TimeOfDay, seed: number, biome: Biome = 'for
 
   // Plano medio según el bioma: bosque cerrado, pradera abierta, ruinas, vado o guarida
   const [mid, m] = canvas(W, H);
-  const trees = { forest: [34, 40, 0.3], meadow: [150, 220, 0.4], ruins: [90, 140, 0.6], ford: [70, 120, 0.25], lair: [60, 90, 1], castle: [200, 300, 0.5] }[biome] as [number, number, number];
+  const trees = {
+    forest: [34, 40, 0.3],
+    meadow: [150, 220, 0.4],
+    ruins: [90, 140, 0.6],
+    ford: [70, 120, 0.25],
+    lair: [60, 90, 1],
+    castle: [200, 300, 0.5],
+    village: [170, 240, 0.35],
+    shrine: [120, 160, 0.8],
+    mountain: [140, 200, 0.2],
+    bog: [80, 130, 0.9],
+  }[biome] as [number, number, number];
+  if (biome === 'mountain') {
+    // Paredes del desfiladero a ambos lados, más altas que los pinos
+    for (const cx of [60, 300, 1180, 1420]) crag(m, rng, cx, GROUND_Y + 14, 320 + rng.next() * 140, 300 + rng.next() * 140, p.mid);
+    hatch(m, rng, 0, GROUND_Y - 400, 360, 380, 220, p.ink, 0.22);
+    hatch(m, rng, W - 360, GROUND_Y - 400, 360, 380, 220, p.ink, 0.22);
+  }
   if (biome === 'ruins') {
     ruinArch(m, 820, GROUND_Y + 6, 1.15, p.mid);
     ruinArch(m, 180, GROUND_Y + 6, 0.8, p.mid);
@@ -292,6 +346,63 @@ export function paintBackdrop(time: TimeOfDay, seed: number, biome: Biome = 'for
     const h = (biome === 'forest' ? 150 : 120) + rng.next() * 170;
     if (rng.chance(trees[2])) deadTree(m, rng, x, GROUND_Y + 10, h * 1.2, p.ink);
     else pine(m, rng, x, GROUND_Y + 14, h, p.ink);
+  }
+  if (biome === 'village') {
+    // Casitas tras una cerca, con alguna ventana encendida
+    const light = time === 'day' ? 'rgba(255, 200, 120, 0.35)' : 'rgba(255, 180, 90, 0.85)';
+    for (const [cx, sc] of [[120, 1.7], [330, 1.4], [960, 1.8], [1190, 1.5], [1390, 1.3]] as const) cottage(m, rng, cx, GROUND_Y + 10, sc, p.mid, p.ink, light);
+    m.strokeStyle = p.ink;
+    m.lineWidth = 3;
+    for (let x = 0; x < W; x += 26) {
+      if (x > 560 && x < 880) continue;
+      m.beginPath();
+      m.moveTo(x, GROUND_Y + 8);
+      m.lineTo(x, GROUND_Y - 22);
+      m.stroke();
+    }
+    m.beginPath();
+    m.moveTo(0, GROUND_Y - 12);
+    m.lineTo(560, GROUND_Y - 12);
+    m.moveTo(880, GROUND_Y - 12);
+    m.lineTo(W, GROUND_Y - 12);
+    m.stroke();
+  }
+  if (biome === 'shrine') {
+    // Ermita de piedra con su llama y menhires alrededor
+    const x = 900;
+    const y = GROUND_Y + 8;
+    m.fillStyle = p.mid;
+    m.fillRect(x - 90, y - 150, 180, 150);
+    m.beginPath();
+    m.moveTo(x - 110, y - 150);
+    m.lineTo(x, y - 240);
+    m.lineTo(x + 110, y - 150);
+    m.fill();
+    m.fillRect(x - 14, y - 300, 28, 70);
+    m.fillRect(x - 30, y - 284, 60, 12);
+    const flame = m.createRadialGradient(x, y - 70, 2, x, y - 70, 70);
+    flame.addColorStop(0, 'rgba(255, 220, 150, 0.95)');
+    flame.addColorStop(0.25, 'rgba(255, 160, 80, 0.5)');
+    flame.addColorStop(1, 'rgba(255, 140, 60, 0)');
+    m.fillStyle = p.ink;
+    m.beginPath();
+    m.moveTo(x - 26, y);
+    m.lineTo(x - 26, y - 80);
+    m.quadraticCurveTo(x, y - 116, x + 26, y - 80);
+    m.lineTo(x + 26, y);
+    m.fill();
+    m.fillStyle = flame;
+    m.fillRect(x - 70, y - 140, 140, 140);
+    m.fillStyle = p.mid;
+    for (const sx of [180, 300, 1180, 1300]) {
+      const h = 60 + rng.next() * 70;
+      m.beginPath();
+      m.moveTo(sx - 14, y);
+      m.lineTo(sx - 10, y - h);
+      m.quadraticCurveTo(sx, y - h - 14, sx + 10, y - h);
+      m.lineTo(sx + 14, y);
+      m.fill();
+    }
   }
   if (biome === 'lair') {
     // Estacas y un resplandor rojizo bajo la bruma
@@ -338,6 +449,25 @@ export function paintBackdrop(time: TimeOfDay, seed: number, biome: Biome = 'for
     gr.fill();
   }
   hatch(gr, rng, 0, GROUND_Y, W, H - GROUND_Y, 700, '#000', 0.28);
+  if (biome === 'bog') {
+    // Marjal: charcas negras con brillo verdoso entre matas de juncos
+    gr.save();
+    for (let i = 0; i < 14; i++) {
+      const cx = rng.next() * W;
+      const cy = GROUND_Y + 4 + rng.next() * 110;
+      const rx = 50 + rng.next() * 120;
+      const pool = gr.createRadialGradient(cx, cy, 2, cx, cy, rx);
+      pool.addColorStop(0, 'rgba(60, 80, 60, 0.6)');
+      pool.addColorStop(0.7, 'rgba(10, 18, 12, 0.7)');
+      pool.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      gr.fillStyle = pool;
+      gr.beginPath();
+      gr.ellipse(cx, cy, rx, rx * 0.18, 0, 0, Math.PI * 2);
+      gr.fill();
+    }
+    gr.restore();
+    for (let x = 30; x < W; x += 90 + rng.next() * 140) if (x < 160 || x > 700) reeds(gr, rng, x, GROUND_Y + 6, p.ink);
+  }
   if (biome === 'ford') {
     // Vado: una franja de agua que refleja el cielo, con juncos en la orilla
     // A la altura de los pies: el grupo cruza el vado con el agua por los tobillos.

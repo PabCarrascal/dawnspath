@@ -232,6 +232,85 @@ button.cp-link {
   color: var(--bone-dim);
 }
 
+.cp-dark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  align-self: stretch;
+  font-family: var(--caps);
+  color: #c9a8ff;
+  border-color: #3a2a5a !important;
+}
+.cp-dark span {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--bone-dim);
+}
+.cp-dark b {
+  font-size: 17px;
+  font-weight: 400;
+}
+.cp-dark.siege {
+  color: #ff9a8a;
+  border-color: var(--blood) !important;
+  animation: cp-pulse 1.4s ease-in-out infinite alternate;
+}
+@keyframes cp-pulse {
+  to {
+    box-shadow: 0 0 18px rgba(200, 40, 40, 0.55);
+  }
+}
+.cp-dark-line {
+  color: #c9a8ff;
+}
+
+/* ───────────────────────── sucesos ───────────────────────── */
+
+.cp-modal.event .kicker {
+  margin: 0;
+  font-family: var(--caps);
+  letter-spacing: 0.18em;
+  color: var(--gold);
+}
+.cp-event-text {
+  font-style: italic;
+  font-size: 18px;
+  line-height: 1.5;
+  color: var(--bone);
+}
+.cp-choices {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.cp-choices button {
+  padding: 10px 16px;
+  border: 2px solid var(--panel-edge);
+  background: linear-gradient(180deg, #2a2118, #120e0a);
+  color: var(--bone);
+  font-family: var(--serif);
+  text-align: left;
+  cursor: pointer;
+}
+.cp-choices button b {
+  font-family: var(--caps);
+  font-weight: 400;
+  font-size: 18px;
+  color: var(--gold-bright);
+}
+.cp-choices button small {
+  margin-left: 10px;
+  color: var(--bone-dim);
+}
+.cp-choices button small.why {
+  display: block;
+  margin: 2px 0 0;
+  color: #f0a0a0;
+}
+.cp-choices button:hover:not(:disabled) {
+  border-color: var(--gold);
+}
+
 /* ───────────────────────── edificios del castillo ───────────────────────── */
 
 .cp-hotspot {
@@ -307,7 +386,9 @@ button.cp-link {
 }
 
 .cp-soldier {
-  flex: 0 0 200px;
+  flex: 1 1 150px;
+  min-width: 140px;
+  max-width: 210px;
   padding: 8px 12px;
   border: 1px solid var(--panel-edge);
   background: var(--panel);
@@ -635,8 +716,25 @@ em.affl {
 .cp-map-frame .fog {
   fill: rgba(60, 50, 40, 0.8);
 }
+.cp-map-frame .dark {
+  fill: rgba(28, 10, 40, 0.78);
+}
+.cp-map-frame .frontier {
+  fill: none;
+  stroke: #4a1a6a;
+  stroke-width: 2.5;
+  stroke-dasharray: 3 5;
+  opacity: 0.8;
+}
 .cp-map-frame .node {
   cursor: default;
+}
+.cp-map-frame .is-dark .name {
+  fill: #e8d8f0;
+  stroke: rgba(20, 8, 30, 0.85);
+}
+.cp-map-frame .is-dark .disc {
+  fill: #6a5a78;
 }
 .cp-map-frame .node .halo {
   fill: none;
@@ -791,6 +889,9 @@ em.affl {
 .cp-map-tip .warn {
   color: #f0d080;
 }
+.cp-map-tip .dark {
+  color: #c9a8ff;
+}
 .cp-map-tip .go {
   color: var(--gold-bright);
   font-style: italic;
@@ -824,6 +925,10 @@ em.affl {
 .cp-legend i.st-secured {
   background: #f0dc9a;
   border-color: #c9a24a;
+}
+.cp-legend i.st-dark {
+  background: #3a2448;
+  border-color: #1a0c24;
 }
 .cp-legend i.st-lost {
   background: #d8b8a0;

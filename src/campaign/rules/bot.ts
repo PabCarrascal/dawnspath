@@ -2,6 +2,7 @@ import { Combat } from '../../combat/rules/Combat';
 import { autoplay } from '../../combat/rules/autoplay';
 import { Campaign } from './Campaign';
 import { BUILDINGS, CBAL, NODE } from './data';
+import { EVENT } from './events';
 import type { BuildingId, Soldier } from './types';
 
 const RANK_ORDER: Record<string, number> = { hero: 0, spearman: 1, archer: 2, chaplain: 3 };
@@ -31,6 +32,8 @@ export function nextStep(from: string, to: string): string | null {
 
 export interface BotSummary {
   result: 'won' | 'lost' | 'timeout';
+  reason?: string;
+  maxDark: number;
   day: number;
   expeditions: number;
   battles: number;
@@ -46,7 +49,9 @@ export interface BotSummary {
 export function playCampaign(seed: number, maxDays = 80): BotSummary {
   const c = new Campaign(seed);
   const s = c.state;
+  let maxDark = 0;
   for (let step = 0; step < 6000 && s.phase !== 'won' && s.phase !== 'lost' && s.day <= maxDays; step++) {
+    maxDark = Math.max(maxDark, Object.values(s.nodes).filter((n) => n.dark).length);
     if (s.phase === 'castle') castleTurn(c);
     else if (s.pending) {
       const combat = new Combat(c.encounter(), s.pending.seed);
@@ -56,6 +61,8 @@ export function playCampaign(seed: number, maxDays = 80): BotSummary {
   }
   return {
     result: s.phase === 'won' ? 'won' : s.phase === 'lost' ? 'lost' : 'timeout',
+    reason: s.endReason,
+    maxDark,
     day: s.day,
     expeditions: s.stats.expeditions,
     battles: s.stats.battles,
@@ -106,18 +113,38 @@ function weak(c: Campaign, x: Soldier) {
 }
 
 function roadTurn(c: Campaign) {
-  const e = c.state.exp!;
+  const st = c.state;
+  // Sucesos: la primera opción que se pueda pagar.
+  if (st.event) {
+    const n = EVENT[st.event.id].choices.length;
+    for (let i = 0; i < n; i++) if (!c.eventBlock(i)) return void c.choose(i);
+    return;
+  }
+  const e = st.exp!;
   const here = c.node(e.node);
+  const def = NODE[e.node];
   const party = c.party;
-  const goHome = e.node !== 'castle' && (party.some((x) => weak(c, x)) || e.food < party.length);
-  const target = goHome ? 'castle' : 'torre';
-  const step = nextStep(e.node, target)!;
 
-  if (!goHome && !here.foes.length && !here.looted && Object.keys(NODE[e.node].loot).length && e.hours >= CBAL.lootHours) {
+  // Aldea: víveres y su recluta. Ermita: rezar si hace falta.
+  if (def.village && !here.foes.length) {
+    const want = party.length * 3 - e.food;
+    if (want > 0 && e.bag.gold >= c.villagePrice(e.node) && c.trade(Math.min(want, Math.floor(e.bag.gold / c.villagePrice(e.node)))).ok) return;
+    if (!here.uses && party.length < CBAL.partyMax && e.bag.gold >= c.hireCost(e.node) && c.hire().ok) return;
+  }
+  if (def.type === 'shrine' && !here.foes.length && here.uses > 0 && e.hours >= CBAL.pray.hours) {
+    if (party.some((x) => x.hp < c.maxHp(x) * 0.7 || x.stress >= 30 || x.affliction) && c.pray().ok) return;
+  }
+
+  const goHome = e.node !== 'castle' && (party.some((x) => weak(c, x)) || e.food < party.length);
+  // Con el castillo asediado, primero hay que despejar sus puertas.
+  const target = goHome ? 'castle' : st.siege !== null && c.node('prado').dark ? 'prado' : 'torre';
+  const step = e.node === target ? NODE[e.node].links[0] : nextStep(e.node, target)!;
+
+  if (!goHome && !here.foes.length && !here.looted && Object.keys(def.loot).length && e.hours >= CBAL.lootHours) {
     if (c.loot().ok) return;
   }
   if (e.hours < c.travelCost(step)) {
-    if (!here.structure && e.node !== 'castle') c.build('camp');
+    if (!c.sheltered(e.node) && e.node !== 'castle') c.build('camp');
     c.camp();
     return;
   }

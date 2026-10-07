@@ -2,16 +2,27 @@
 
 Gestión de un castillo y expediciones cortas con combate por turnos, en 2D y con la estética de Darkest Dungeon. Mejoras el castillo, preparas al grupo y sus víveres, y avanzas por un sendero ramificado hasta el Heraldo de la Noche, el lugarteniente del Rey.
 
-**Ganas** si vences al Heraldo. **Pierdes** si cae el héroe sin nadie que lo saque del combate.
+**Ganas** si vences al Heraldo. **Pierdes** si cae el héroe sin nadie que lo saque del combate, o si la oscuridad engulle el castillo.
 
-Está en fase temprana: el corte vertical (fase 1) del [documento de diseño](https://claude.ai/code/artifact/8ca35d88-c574-4c82-b382-6e8fb4c8d4cd), con arte de relleno pintado por código.
+Está en fase temprana, con arte de relleno pintado por código. Diseño completo en el [documento de diseño](https://claude.ai/code/artifact/8ca35d88-c574-4c82-b382-6e8fb4c8d4cd).
 
 ## El juego
 
 - **Castillo:** herrería (daño y protección), taberna (estrés y reclutas) y logia de constructores (campamentos y torres), con 3 mejoras cada una.
 - **Expedición:** el héroe y hasta 3 soldados, con víveres y antorchas. Viajar y cada acción en un nodo gastan horas de luz.
-- **Sendero:** 5 nodos con una bifurcación. En cada uno se puede explorar, saquear, construir y dejar soldados de guardia.
-- **Noche:** en un campamento se cura; al raso sube el estrés, se come más y al día siguiente hay menos luz. Puede haber emboscada. Las guarniciones pueden caer y los nodos sin guardia vuelven a manos de las criaturas.
+- **Sendero:** 12 nodos con dos caminos hacia la torre del Heraldo.
+  - En cualquier nodo se puede explorar, saquear, construir y dejar soldados de guardia.
+  - **Aldeas:** víveres baratos, un recluta y cobijo. Una de ellas hay que liberarla.
+  - **Ermita:** cura y quita aflicciones, con usos limitados.
+  - **Paso de montaña:** más lento de cruzar.
+  - **Marjal:** sube el estrés al entrar.
+  - **Cubil de las Sombras:** foco de oscuridad.
+- **Oscuridad:** cada 4 días avanza desde la torre y el cubil.
+  - En los nodos oscuros siempre es de noche y vuelven las criaturas.
+  - Las guarniciones la contienen y limpiar un nodo devuelve la luz. Destruir el cubil la hace retroceder.
+  - Si llega a las puertas, el castillo resiste 3 días.
+- **Sucesos:** encuentros con elección al llegar a los nodos, en aldeas y en la ermita.
+- **Noche:** en un campamento o una aldea se cura; al raso sube el estrés, se come más y al día siguiente hay menos luz. Puede haber emboscada, las guarniciones pueden caer y los nodos sin guardia vuelven a manos de las criaturas.
 - **Combate:** 4 posiciones por bando, habilidades según la posición, estrés con virtudes y aflicciones, puertas de la muerte y muerte permanente.
 
 ## Cómo arrancarlo
@@ -46,7 +57,7 @@ src/
 
 ## Balance
 
-- Campaña: [`src/campaign/rules/data.ts`](src/campaign/rules/data.ts).
+- Campaña: [`src/campaign/rules/data.ts`](src/campaign/rules/data.ts); sucesos en [`events.ts`](src/campaign/rules/events.ts).
 - Combate: [`src/combat/rules/data.ts`](src/combat/rules/data.ts) y `BAL` en [`Combat.ts`](src/combat/rules/Combat.ts).
 
 ## Arte

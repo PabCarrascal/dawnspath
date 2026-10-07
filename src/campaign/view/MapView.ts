@@ -23,6 +23,11 @@ const GLYPH: Record<NodeType, string> = {
   ruins: '<path d="M-18 12 V-8 H-12 V12 M10 12 V-2 H16 V12 M-18 -8 Q-4 -24 10 -4" /><path d="M-24 12 H22" />',
   ford: '<path d="M-22 -4 q6 -6 11 0 t11 0 t11 0 t11 0 M-22 6 q6 -6 11 0 t11 0 t11 0 t11 0" />',
   lair: '<path d="M-10 14 L-8 -12 L-4 -4 L0 -24 L4 -4 L8 -12 L10 14 Z" /><circle cx="0" cy="2" r="3" class="eye"/>',
+  village: '<path d="M-20 12 V-2 L-11 -10 L-2 -2 V12 M2 12 V-6 L11 -16 L20 -6 V12 M-24 12 H24" /><path d="M8 4 h5 v5 h-5 Z" class="hole"/>',
+  shrine: '<path d="M-14 12 V-4 L0 -16 L14 -4 V12 Z M0 -16 V-26 M-5 -22 H5" /><path d="M-3 12 V4 Q0 -2 3 4 V12" class="hole"/>',
+  mountain: '<path d="M-24 12 L-10 -12 L-3 -2 L6 -20 L24 12 Z M6 -20 L2 -8 M-10 -12 L-13 -2" />',
+  den: '<path d="M-22 12 Q-18 -16 0 -16 Q18 -16 22 12 Z" /><path d="M-10 12 Q-8 -4 0 -4 Q8 -4 10 12 Z" class="hole"/><circle cx="-3" cy="5" r="1.8" class="eye"/><circle cx="3" cy="5" r="1.8" class="eye"/>',
+  bog: '<path d="M-22 8 q5 -4 10 0 t10 0 t10 0 t10 0 M-14 8 V-10 M-10 8 V-14 M12 8 V-8 M16 8 V-12" />',
 };
 
 /** Pergamino envejecido con montañas, bosques, el río y una rosa de los vientos. */
@@ -70,9 +75,9 @@ function paintParchment(seed: number): HTMLCanvasElement {
   ctx.lineWidth = 7;
   ctx.strokeStyle = 'rgba(70, 90, 100, 0.45)';
   ctx.beginPath();
-  ctx.moveTo(760, -10);
-  ctx.bezierCurveTo(690, 140, 760, 260, 705, 390);
-  ctx.bezierCurveTo(660, 500, 740, 560, 700, 640);
+  ctx.moveTo(680, -10);
+  ctx.bezierCurveTo(640, 120, 700, 260, 605, 385);
+  ctx.bezierCurveTo(540, 470, 680, 540, 650, 640);
   ctx.stroke();
   ctx.lineWidth = 1.5;
   ctx.strokeStyle = ink;
@@ -118,9 +123,24 @@ function paintParchment(seed: number): HTMLCanvasElement {
   }
   for (let i = 0; i < 40; i++) tree(rng.next() * MAP_W, 200 + rng.next() * 400, 0.7 + rng.next() * 0.4);
 
+  // Juncos del marjal
+  for (let i = 0; i < 26; i++) {
+    const x = NODE.marjal.x + (rng.next() - 0.5) * 150;
+    const y = NODE.marjal.y + (rng.next() - 0.5) * 90;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y);
+    ctx.lineTo(x + 5, y);
+    ctx.moveTo(x - 2, y);
+    ctx.lineTo(x - 3, y - 7);
+    ctx.moveTo(x + 2, y);
+    ctx.lineTo(x + 3, y - 9);
+    ctx.stroke();
+  }
+
   // Rosa de los vientos
-  const cx = 905;
-  const cy = 525;
+  const cx = 920;
+  const cy = 548;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.arc(cx, cy, 38, 0, Math.PI * 2);
@@ -206,17 +226,22 @@ export class MapView {
     }
     let fog = '';
     let nodes = '';
+    const frontier = c.darkFrontier();
     for (const n of MAP) {
       const st = c.status(n.id);
       const ns = c.node(n.id);
       const canGo = reach.includes(n.id);
       if (st === 'unknown') fog += `<ellipse class="fog" cx="${n.x}" cy="${n.y}" rx="74" ry="52" />`;
+      // La oscuridad se ve aunque el nodo no se haya explorado.
+      if (ns.dark) fog += `<ellipse class="dark" cx="${n.x}" cy="${n.y}" rx="86" ry="62" />`;
+      const front = frontier.includes(n.id) ? `<circle class="frontier" cx="${n.x}" cy="${n.y}" r="40" />` : '';
       const struct = ns.structure ? `<text class="struct" x="${n.x + 30}" y="${n.y - 18}">${ns.structure === 'tower' ? '♜' : '△'}</text>` : '';
       const guards = ns.garrison.length ? `<text class="guards" x="${n.x + 30}" y="${n.y + 2}">${'⚑'.repeat(ns.garrison.length)}</text>` : '';
       const foes = st === 'hostile' || st === 'lost' ? `<text class="foes" x="${n.x - 34}" y="${n.y - 18}">${'☠'.repeat(Math.min(4, ns.foes.length))}</text>` : '';
       const cost = canGo ? `<text class="cost" x="${n.x}" y="${n.y + 58}">${c.travelCost(n.id)} h</text>` : '';
       nodes += `
-        <g class="node st-${st} ${canGo ? 'reach' : ''} ${here === n.id ? 'here' : ''} ${n.boss ? 'boss' : ''}" data-id="${n.id}" transform="translate(0 0)">
+        <g class="node st-${st} ${canGo ? 'reach' : ''} ${here === n.id ? 'here' : ''} ${n.boss ? 'boss' : ''} ${ns.dark ? 'is-dark' : ''}" data-id="${n.id}">
+          ${front}
           <circle class="halo" cx="${n.x}" cy="${n.y}" r="34" />
           <circle class="disc" cx="${n.x}" cy="${n.y}" r="26" />
           <g class="glyph" transform="translate(${n.x} ${n.y})">${st === 'unknown' ? '<text class="q" y="10">?</text>' : GLYPH[n.type]}</g>
@@ -249,8 +274,13 @@ export class MapView {
     if (st !== 'unknown') lines.push(`<p>${def.desc}</p>`);
     if (st === 'hostile' || st === 'lost') lines.push(`<p class="bad">Lo defienden: ${c.describeFoes(ns.foes)}</p>`);
     if (st === 'unknown') lines.push('<p>Nadie sabe qué espera allí. Explora desde un nodo vecino para descubrirlo.</p>');
+    if (ns.dark) lines.push(`<p class="dark">Cubierto por la oscuridad: allí siempre se pelea de noche y las criaturas vuelven.${def.source && !ns.destroyed ? ' Es un foco: desde aquí avanza la noche.' : ''}</p>`);
+    else if (c.darkFrontier().includes(id)) lines.push(`<p class="dark">La oscuridad llegará en ${c.state.darkClock} ${c.state.darkClock === 1 ? 'día' : 'días'}${ns.garrison.length && ns.structure ? ', pero su guarnición puede contenerla' : ''}.</p>`);
+    if (ns.destroyed) lines.push('<p class="good">Foco destruido: la oscuridad ya no nace aquí.</p>');
+    if (def.village && !ns.foes.length) lines.push(`<p class="good">Aldea: víveres a ${c.villagePrice(id)} de oro, cobijo para dormir${ns.uses ? '' : ` y ${def.village.name} dispuesto a unirse`}.</p>`);
+    if (def.type === 'shrine' && !ns.foes.length && st !== 'unknown') lines.push(`<p class="good">Ermita: ${ns.uses ? `quedan ${ns.uses} rezos` : 'la llama se ha apagado'}.</p>`);
     if (ns.structure) lines.push(`<p>${STRUCTURES[ns.structure].name}${ns.garrison.length ? ` · ${ns.garrison.length} de guardia: ${ns.garrison.map((g) => c.soldier(g)?.name).join(', ')}` : ' · sin guardia'}</p>`);
-    if (st === 'cleared' && id !== 'castle') lines.push('<p class="warn">Sin guardia: de noche las criaturas pueden retomarlo y al cruzarlo hay riesgo de emboscada.</p>');
+    if (st === 'cleared' && id !== 'castle' && def.type !== 'village') lines.push('<p class="warn">Sin guardia: de noche las criaturas pueden retomarlo y al cruzarlo hay riesgo de emboscada.</p>');
     if (st === 'secured') lines.push('<p class="good">Asegurado: se cruza en 1 hora y sin riesgo.</p>');
     if (st !== 'unknown' && !ns.foes.length && !ns.looted && Object.keys(def.loot).length && id !== 'castle') lines.push('<p class="good">Queda botín por saquear.</p>');
     if (reach) lines.push(`<p class="go">Clic para viajar · ${c.travelCost(id)} h de luz</p>`);

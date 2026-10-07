@@ -4,7 +4,7 @@ import type { Affliction } from '../../combat/rules/types';
 export type SoldierKind = 'hero' | 'spearman' | 'archer' | 'chaplain';
 export type BuildingId = 'smithy' | 'tavern' | 'lodge';
 export type Structure = 'camp' | 'tower';
-export type NodeType = 'castle' | 'meadow' | 'forest' | 'ruins' | 'ford' | 'lair';
+export type NodeType = 'castle' | 'meadow' | 'forest' | 'ruins' | 'ford' | 'lair' | 'village' | 'shrine' | 'mountain' | 'den' | 'bog';
 
 export interface Resources {
   gold: number;
@@ -53,6 +53,14 @@ export interface NodeDef {
   regen: string[];
   loot: Partial<Resources>;
   boss?: boolean;
+  /** Aldea: víveres más baratos y un recluta. */
+  village?: { foodPrice: number; recruit: Exclude<SoldierKind, 'hero'>; name: string };
+  /** Ermita: veces que se puede rezar. */
+  prayers?: number;
+  /** Foco de oscuridad: mientras siga en pie, la noche se extiende desde aquí. */
+  source?: boolean;
+  /** Estrés que cuesta entrar (marjales, lugares malditos). */
+  enterStress?: number;
 }
 
 /** Estado cambiante de un nodo. */
@@ -63,9 +71,25 @@ export interface NodeState {
   looted: boolean;
   structure: Structure | null;
   garrison: string[];
+  /** Cubierto por la oscuridad: allí siempre se pelea de noche. */
+  dark: boolean;
+  /** Foco destruido: ya no extiende la oscuridad. */
+  destroyed?: boolean;
+  /** Ermita: rezos que quedan. Aldea: si ya se contrató a su recluta. */
+  uses: number;
+  /** Suceso propio del lugar ya ocurrido (aldeas, ermitas). */
+  visited?: boolean;
 }
 
 export type NodeStatus = 'unknown' | 'hostile' | 'lost' | 'cleared' | 'secured' | 'castle';
+
+/** Suceso esperando a que el jugador elija. */
+export interface PendingEvent {
+  id: string;
+  node: string;
+  /** Resultado de la elección, para mostrarlo antes de seguir. */
+  result?: LogLine[];
+}
 
 export interface Expedition {
   /** Ids de soldados en orden de posición (1 = delante). */
@@ -102,7 +126,7 @@ export interface LogLine {
 }
 
 export interface CampaignState {
-  version: 1;
+  version: 2;
   seed: number;
   rng: number;
   day: number;
@@ -114,6 +138,17 @@ export interface CampaignState {
   nodes: Record<string, NodeState>;
   exp: Expedition | null;
   pending: PendingCombat | null;
+  event: PendingEvent | null;
+  /** Sucesos de una sola vez que ya han salido. */
+  eventsSeen: string[];
+  /** Días que faltan para que la oscuridad avance. */
+  darkClock: number;
+  /** Asedio: días que resiste el castillo con la oscuridad a sus puertas. */
+  siege: number | null;
+  /** Recargo en el precio de los víveres por aldea (sucesos). */
+  villagePrices?: Record<string, number>;
+  /** Aldeas cuyo recluta se ofrece gratis. */
+  freeHire?: string[];
   /** Último informe del amanecer o del regreso, para mostrarlo tras recargar. */
   report: { title: string; lines: LogLine[] } | null;
   stats: { expeditions: number; battles: number; deaths: number; nights: number };
@@ -122,5 +157,5 @@ export interface CampaignState {
 }
 
 export type ActionResult =
-  | { ok: true; log: LogLine[]; combat?: PendingCombat }
+  | { ok: true; log: LogLine[]; combat?: PendingCombat; event?: PendingEvent }
   | { ok: false; reason: string };

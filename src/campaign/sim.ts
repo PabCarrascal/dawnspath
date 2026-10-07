@@ -12,8 +12,13 @@ const avg = (f: (r: (typeof runs)[number]) => number, xs = runs) => (xs.reduce((
 const won = runs.filter((r) => r.result === 'won');
 const pct = (n: number) => `${((n / games) * 100).toFixed(0)}%`;
 
-console.log(`\n── Corte vertical: ${games} campañas ──`);
+console.log(`\n── Campaña: ${games} campañas ──`);
 console.log(`victorias ${pct(won.length)} · derrotas ${pct(runs.filter((r) => r.result === 'lost').length)} · sin terminar ${pct(runs.filter((r) => r.result === 'timeout').length)}`);
 console.log(`días ${avg((r) => r.day)} (al ganar ${avg((r) => r.day, won)}) · expediciones ${avg((r) => r.expeditions)} · combates ${avg((r) => r.battles)}`);
 console.log(`muertes ${avg((r) => r.deaths)} · noches fuera ${avg((r) => r.nights)}`);
+const lost = runs.filter((r) => r.result === 'lost');
+const reasons: Record<string, number> = {};
+for (const r of lost) reasons[r.reason ?? '?'] = (reasons[r.reason ?? '?'] ?? 0) + 1;
+console.log(`derrotas por: ${Object.entries(reasons).map(([k, v]) => `${k} (${v})`).join(' · ')}`);
+console.log(`nodos oscuros como máximo ${avg((r) => r.maxDark)}`);
 console.log(`edificios al final: herrería ${avg((r) => r.buildings.smithy)} · taberna ${avg((r) => r.buildings.tavern)} · logia ${avg((r) => r.buildings.lodge)}`);

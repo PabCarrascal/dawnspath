@@ -2,6 +2,7 @@ import '../combat/combat.css';
 import './campaign.css';
 import { Application } from 'pixi.js';
 import { audio } from '../audio/Audio';
+import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from '../combat/rules/Combat';
 import { startCombat } from '../combat/session';
 import { anim } from '../core/anim';
@@ -9,6 +10,7 @@ import { GROUND_Y, TimeOfDay } from '../combat/view/backdrop';
 import { seedFromString } from '../core/rng';
 import { Campaign, formatRes } from './rules/Campaign';
 import { BUILDINGS, CBAL, KIND_NAMES, NODE, STRUCTURES } from './rules/data';
+import { EVENT } from './rules/events';
 import type { ActionResult, BuildingId, CampaignState, LogLine, Soldier } from './rules/types';
 import { MapView } from './view/MapView';
 import { BUILDING_X, paintBuildings, paintCastleBack, paintNodeProps } from './view/props';
@@ -16,7 +18,7 @@ import { PARTY_X, SceneView, soldierFighter } from './view/SceneView';
 
 // `?partida=nombre` usa otra ranura de guardado (para probar sin tocar la partida principal).
 const slot = new URLSearchParams(location.search).get('partida');
-const SAVE_KEY = `dawnspath.campaign.v1${slot ? `.${slot}` : ''}`;
+const SAVE_KEY = `dawnspath.campaign.v2${slot ? `.${slot}` : ''}`;
 const $ = <T extends HTMLElement = HTMLElement>(sel: string, root: ParentNode = document) => root.querySelector(sel) as T;
 
 const stage = $('#stage');
@@ -37,7 +39,7 @@ function load(): CampaignState | null {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as CampaignState;
-    return s.version === 1 ? s : null;
+    return s.version === 2 ? s : null;
   } catch {
     return null;
   }
@@ -161,7 +163,22 @@ function setNight(tod: TimeOfDay) {
   audio.setNight(tod === 'night' ? 1 : tod === 'dusk' ? 0.7 : 0.45);
 }
 
-const timeOfDay = () => ((campaign.state.exp?.hours ?? 12) > 4 ? 'day' : 'dusk') as TimeOfDay;
+/** Hora de la escena: en un nodo oscuro siempre es de noche. */
+const timeOfDay = (): TimeOfDay => {
+  const e = campaign.state.exp;
+  if (e && campaign.node(e.node).dark) return 'night';
+  return (e?.hours ?? 12) > 4 ? 'day' : 'dusk';
+};
+
+/** Reloj de la oscuridad (o cuenta atrás del asedio) para la barra superior. */
+function darkHud() {
+  const s = campaign.state;
+  if (s.siege !== null) {
+    return `<div class="cp-dark siege" title="La oscuridad está a las puertas. Despeja el Prado Ceniciento para levantar el asedio.">☾ <span>Asedio</span><b>${s.siege} ${s.siege === 1 ? 'día' : 'días'}</b></div>`;
+  }
+  const n = s.darkClock;
+  return `<div class="cp-dark" title="Cada ${CBAL.darkEvery} días la oscuridad cubre los nodos vecinos a los que ya son oscuros. Los nodos asegurados resisten.">☾ <span>Oscuridad</span><b>${n} ${n === 1 ? 'día' : 'días'}</b></div>`;
+}
 
 // ───────────────────────── arranque ─────────────────────────
 
@@ -183,7 +200,7 @@ function showTitle() {
   setScene(castleScene('dusk'));
   ui.innerHTML = `
     <div class="cp-title">
-      <p class="kicker">Dawn's Path · fase 1 · corte vertical</p>
+      <p class="kicker">Dawn's Path · fase 2</p>
       <h1>El Sendero del Alba</h1>
       <p class="lead">Mejora el castillo, prepara expediciones cortas por el sendero y abre paso hasta el Heraldo de la Noche.</p>
       <div class="cp-buttons">
@@ -215,6 +232,7 @@ function resume() {
   if (s.pending) return void fight();
   if (s.phase === 'castle') return showCastle();
   showNode();
+  if (s.event) showEvent();
 }
 
 function intro() {
@@ -224,7 +242,8 @@ function intro() {
     <ul class="cp-list">
       <li><b>Castillo</b> · mejora la herrería, la taberna y la logia con lo que traigas de las expediciones.</li>
       <li><b>Expedición</b> · el héroe y hasta 3 soldados. Cada viaje y cada acción gastan horas de luz.</li>
-      <li><b>Noche</b> · acampar en un campamento cura; dormir al raso desgasta. Los nodos sin guardia pueden perderse.</li>
+      <li><b>Noche</b> · acampar en un campamento o una aldea cura; dormir al raso desgasta. Los nodos sin guardia pueden perderse.</li>
+      <li><b>Oscuridad</b> · cada ${CBAL.darkEvery} días avanza desde la torre y el cubil. Si llega a las puertas, el castillo resiste ${CBAL.siegeDays} días. Limpia y asegura nodos para frenarla; destruye el cubil para hacerla retroceder.</li>
       <li><b>Muerte</b> · los soldados que caen no vuelven. Si el héroe cae, el grupo se retira cargando con él; si cae solo, todo termina.</li>
     </ul>
     <div class="cp-buttons"><button class="primary" data-act="ok">Adelante</button></div>`,
@@ -302,6 +321,7 @@ function castleHud() {
     <header class="cp-hud">
       <div class="cp-day"><span>Día</span><b>${c.state.day}</b></div>
       <div class="cp-res">${resLine(c.state.stock)}<span title="Víveres">✤ ${c.state.stock.food}</span><span title="Antorchas">♨ ${c.state.stock.torches}</span></div>
+      ${darkHud()}
       <div class="cp-where">Castillo del Alba</div>
     </header>`;
 }
@@ -453,6 +473,7 @@ function showPrep(selected?: string[]) {
       </section>
     </div>
     <div class="cp-buttons">
+      ${st.food < need ? '<span class="tone-bad">Sin víveres suficientes pasaréis hambre.</span>' : ''}
       <button class="primary" data-act="go">Partir</button>
       <button data-act="close">Cancelar</button>
     </div>`,
@@ -524,8 +545,10 @@ function showNode(tod: TimeOfDay = timeOfDay()) {
   const canLoot = !n.foes.length && !n.looted && Object.keys(def.loot).length > 0 && e.node !== 'castle';
   const camp = c.structureCost('camp');
   const tower = c.structureCost('tower');
-  const rough = !n.structure;
+  const rough = !c.sheltered(e.node);
   const need = rough ? Math.ceil(e.party.length * 1.5) : e.party.length;
+  const village = def.village && !n.foes.length ? def.village : null;
+  const shrine = def.type === 'shrine' && !n.foes.length;
   const cap = n.structure ? STRUCTURES[n.structure].garrison : 0;
   const atCastle = e.node === 'castle';
 
@@ -534,11 +557,20 @@ function showNode(tod: TimeOfDay = timeOfDay()) {
   if (atCastle) actions.push(`<button data-act="cancel">Volver a entrar</button>`);
   if (hidden) actions.push(`<button data-act="scout" title="Revela qué defiende los nodos vecinos.">Explorar alrededores · ${CBAL.scoutHours} h</button>`);
   if (canLoot) actions.push(`<button data-act="loot">Saquear · ${CBAL.lootHours} h</button>`);
-  if (!atCastle && !n.structure) actions.push(`<button data-act="camp-build" title="${STRUCTURES.camp.desc}">Campamento · ${formatRes(camp.res)} · ${camp.hours} h</button>`);
+  if (village) {
+    const price = c.villagePrice(e.node);
+    actions.push(`<button data-act="trade" title="Con el oro de la caravana.">Comprar 3 víveres · ${price * 3} oro</button>`);
+    if (!n.uses) {
+      const cost = c.hireCost(e.node);
+      actions.push(`<button data-act="hire" title="${KIND_NAMES[village.recruit]}: se une al grupo.">Contratar a ${village.name} · ${cost ? `${cost} oro` : 'gratis'}</button>`);
+    }
+  }
+  if (shrine && n.uses > 0) actions.push(`<button data-act="pray" title="Cura, baja el estrés y quita las aflicciones de todo el grupo.">Rezar · ${CBAL.pray.hours} h · quedan ${n.uses}</button>`);
+  if (!atCastle && !n.structure && !village) actions.push(`<button data-act="camp-build" title="${STRUCTURES.camp.desc}">Campamento · ${formatRes(camp.res)} · ${camp.hours} h</button>`);
   if (!atCastle && n.structure !== 'tower' && c.state.buildings.lodge >= 1) actions.push(`<button data-act="tower-build" title="${STRUCTURES.tower.desc}">Torre · ${formatRes(tower.res)} · ${tower.hours} h</button>`);
   if (n.structure && n.garrison.length < cap && e.party.length > 1) actions.push(`<button data-act="guard">Dejar de guardia…</button>`);
   for (const id of n.garrison) actions.push(`<button data-recall="${id}">Recoger a ${c.soldier(id)!.name}</button>`);
-  if (!atCastle) actions.push(`<button class="night" data-act="sleep" title="${rough ? 'Al raso: no cura, sube el estrés, se come más y mañana hay menos luz.' : 'En el campamento: cura algo y baja el estrés.'}">Acampar ${rough ? 'al raso' : 'aquí'} · ${need} víveres</button>`);
+  if (!atCastle) actions.push(`<button class="night" data-act="sleep" title="${rough ? 'Al raso: no cura, sube el estrés, se come más y mañana hay menos luz.' : 'A cubierto: cura algo y baja el estrés.'}${n.dark ? ' En la oscuridad la noche pesa más y las emboscadas son más probables.' : ''}">Acampar ${rough ? 'al raso' : village ? 'en la aldea' : 'aquí'} · ${need} víveres</button>`);
 
   const hoursPct = (e.hours / e.maxHours) * 100;
   ui.innerHTML = `
@@ -546,7 +578,8 @@ function showNode(tod: TimeOfDay = timeOfDay()) {
       <div class="cp-day"><span>Día</span><b>${c.state.day}</b></div>
       <div class="cp-hours ${tod}" title="Horas de luz"><span>Luz</span><i><i style="width:${hoursPct}%"></i></i><b>${e.hours} h</b></div>
       <div class="cp-res"><span title="Víveres">✤ ${e.food}</span><span title="Antorchas">♨ ${e.torches}</span>${resLine(e.bag)}</div>
-      <div class="cp-where">${def.name}<small>${{ castle: 'puerta del castillo', cleared: 'limpio', secured: 'asegurado', hostile: 'hostil', lost: 'perdido', unknown: '' }[c.status(e.node)]}${n.structure ? ` · ${STRUCTURES[n.structure].name.toLowerCase()}` : ''}</small></div>
+      ${darkHud()}
+      <div class="cp-where">${def.name}<small>${{ castle: 'puerta del castillo', cleared: village ? 'aldea' : 'limpio', secured: 'asegurado', hostile: 'hostil', lost: 'perdido', unknown: '' }[c.status(e.node)]}${n.structure ? ` · ${STRUCTURES[n.structure].name.toLowerCase()}` : ''}${n.dark ? ' · en la oscuridad' : ''}</small></div>
     </header>
     <footer class="cp-panel">
       <section class="cp-roster">${c.party.map((x) => soldierCard(x)).join('')}</section>
@@ -561,6 +594,9 @@ function showNode(tod: TimeOfDay = timeOfDay()) {
   on('[data-act="camp-build"]', () => act(c.build('camp'), 'build') && showNode());
   on('[data-act="tower-build"]', () => act(c.build('tower'), 'build') && showNode());
   on('[data-act="guard"]', () => chooseGuard());
+  on('[data-act="trade"]', () => act(c.trade(3), 'good') && showNode());
+  on('[data-act="hire"]', () => act(c.hire(), 'levelUp') && showNode());
+  on('[data-act="pray"]', () => act(c.pray(), 'heal') && showNode());
   on('[data-act="sleep"]', () => sleep());
   for (const el of ui.querySelectorAll<HTMLButtonElement>('[data-recall]')) el.addEventListener('click', () => act(c.recall(el.dataset.recall!)) && showNode());
 }
@@ -596,6 +632,48 @@ function sleep() {
   });
 }
 
+// ───────────────────────── sucesos ─────────────────────────
+
+/** Muestra el suceso pendiente: texto, opciones y, al elegir, lo que pasó. */
+function showEvent() {
+  const c = campaign;
+  const ev = c.state.event;
+  if (!ev) return;
+  const def = EVENT[ev.id];
+  audio.play('select');
+  const m = modal(
+    `<p class="kicker">${NODE[ev.node].name}</p>
+    <h2>${def.title}</h2>
+    <p class="cp-event-text">${def.text}</p>
+    <div class="cp-choices">${def.choices
+      .map((ch, i) => {
+        const block = c.eventBlock(i);
+        return `<button data-choice="${i}" ${block ? `disabled title="${block}"` : ''}><b>${ch.label}</b>${ch.hint ? `<small>${ch.hint}</small>` : ''}${block ? `<small class="why">${block}</small>` : ''}</button>`;
+      })
+      .join('')}</div>`,
+    'narrow locked event',
+  );
+  for (const el of m.querySelectorAll<HTMLButtonElement>('[data-choice]')) {
+    el.addEventListener('click', () => {
+      const r = c.choose(Number(el.dataset.choice));
+      if (!r.ok) return void act(r);
+      save();
+      const good = r.log.some((l) => l.tone === 'good');
+      audio.play(r.combat ? 'roar' : good ? 'good' : 'click');
+      $('.cp-modal-box', m).innerHTML = `
+        <p class="kicker">${NODE[ev.node].name}</p>
+        <h2>${def.title}</h2>
+        <ul class="cp-report">${r.log.map((l) => `<li class="tone-${l.tone}">${l.text}</li>`).join('')}</ul>
+        <div class="cp-buttons"><button class="primary" data-act="ok">${r.combat ? '¡A las armas!' : 'Seguir'}</button></div>`;
+      $('[data-act="ok"]', m).addEventListener('click', () => {
+        closeModal();
+        if (r.combat) return void fight();
+        showNode();
+      });
+    });
+  }
+}
+
 // ───────────────────────── mapa ─────────────────────────
 
 function showMap() {
@@ -611,7 +689,13 @@ function showMap() {
              <p class="dim">Los nodos asegurados (campamento o torre con guardia) se cruzan en 1 hora y sin riesgo.</p>`
           : '<p>Prepara una expedición desde el castillo para recorrer el sendero.</p>'
       }
+      <p class="cp-dark-line">${
+        c.state.siege !== null
+          ? `<b>Asedio:</b> el castillo cae en ${c.state.siege} días si no despejas sus puertas.`
+          : `La oscuridad avanzará en <b>${c.state.darkClock} ${c.state.darkClock === 1 ? 'día' : 'días'}</b> sobre los nodos marcados.`
+      }</p>
       <ul class="cp-legend">
+        <li><i class="st-dark"></i>Oscuridad · siempre de noche</li>
         <li><i class="st-hostile"></i>Hostil · hay que combatir</li>
         <li><i class="st-cleared"></i>Limpio · sin guardia</li>
         <li><i class="st-secured"></i>Asegurado</li>
@@ -628,7 +712,10 @@ function showMap() {
       closeModal();
       if (c.state.phase === 'castle') return void fade(showCastle);
       if (r.combat) return void fight();
-      void fade(() => showNode());
+      void fade(() => {
+        showNode();
+        if (r.event) showEvent();
+      });
     },
   });
   $('.cp-map-wrap', m).appendChild(view.el);
@@ -666,6 +753,7 @@ async function fight() {
   }
   logLines(r.log);
   showNode();
+  if (c.state.event) showEvent();
 }
 
 // ───────────────────────── final ─────────────────────────
@@ -685,7 +773,7 @@ function showEnd() {
       <p class="kicker">Día ${s.day} · ${s.stats.expeditions} expediciones · ${s.stats.battles} combates</p>
       <h1>${won ? 'El alba avanza' : 'La noche vence'}</h1>
       <p class="lead">${s.endReason ?? ''}</p>
-      ${won ? '<p class="dim">Fin del corte vertical. Aquí empezaría el camino hacia el Rey de la Noche.</p>' : ''}
+      ${won ? '<p class="dim">Fin de esta campaña. Aquí empezaría el camino hacia el Rey de la Noche.</p>' : ''}
       <h3>Memorial</h3>
       <ul class="cp-report">${fallen.length ? fallen.map((x) => `<li><b>${x.name}</b> · ${KIND_NAMES[x.kind]} · ${x.fate ?? ''}</li>`).join('') : '<li>Nadie cayó. Una hazaña rara.</li>'}</ul>
       <div class="cp-buttons"><button class="primary" data-act="new">Nueva campaña</button></div>
@@ -702,4 +790,5 @@ function showEnd() {
 }
 
 if (import.meta.env.DEV) Object.assign(window, { getCampaign: () => campaign });
+mountSoundControl();
 void boot();

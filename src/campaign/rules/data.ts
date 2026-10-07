@@ -33,6 +33,18 @@ export const CBAL = {
   goldPerFoe: 8,
   xpLevels: [0, 2, 5, 9],
   treatCost: 15,
+  /** Días entre cada avance de la oscuridad. */
+  darkEvery: 4,
+  /** Días que aguanta el castillo con la oscuridad a sus puertas. */
+  siegeDays: 3,
+  /** Ataque extra contra una guarnición cuando la oscuridad llega a su nodo. */
+  darkAttack: 0.6,
+  /** Probabilidad de suceso al llegar a un nodo sin combate. */
+  eventChance: 0.35,
+  villageHire: 25,
+  pray: { hours: 1, heal: 0.25, stress: -20 },
+  /** Estrés extra al acampar en un nodo oscuro. */
+  darkNightStress: 6,
 };
 
 export const BUILDINGS: Record<BuildingId, { name: string; desc: string; levels: string[]; cost: Partial<Resources>[] }> = {
@@ -92,42 +104,84 @@ export const NIGHT_FOES = [
   ['brute', 'shade', 'stalker'],
 ];
 
-/** El sendero del corte vertical: cinco nodos con una bifurcación y un lugarteniente al final. */
+/**
+ * El sendero: doce nodos del castillo a la torre del Heraldo, con dos caminos
+ * (el bosque y la ermita por el norte, el vado y el marjal por el sur) y el
+ * cubil de las sombras, que extiende la oscuridad mientras siga en pie.
+ */
 export const MAP: NodeDef[] = [
   {
     id: 'castle', name: 'Castillo del Alba', type: 'castle', biome: 'castle',
     desc: 'Tu base. Aquí se descansa, se mejora y se prepara la siguiente salida.',
-    x: 120, y: 470, links: ['prado'], travel: 2, foes: [], regen: [], loot: {},
+    x: 110, y: 480, links: ['prado'], travel: 2, foes: [], regen: [], loot: {},
   },
   {
     id: 'prado', name: 'Prado Ceniciento', type: 'meadow', biome: 'meadow',
-    desc: 'Campo abierto: fácil para acampar, sin protección natural.',
-    x: 300, y: 420, links: ['castle', 'bosque', 'ruinas'], travel: 2,
+    desc: 'La puerta del castillo. Si la oscuridad llega aquí, empieza el asedio.',
+    x: 270, y: 420, links: ['castle', 'robledal', 'bosque', 'ruinas'], travel: 2,
     foes: ['shade', 'stalker'], regen: ['shade', 'stalker'], loot: { gold: 25, materials: 3 },
+  },
+  {
+    id: 'robledal', name: 'Aldea de Robledal', type: 'village', biome: 'village',
+    desc: 'Una aldea que aún resiste. Víveres baratos, cobijo para dormir y alguien dispuesto a luchar.',
+    x: 225, y: 250, links: ['prado', 'bosque'], travel: 3,
+    foes: [], regen: ['shade', 'stalker'], loot: {},
+    village: { foodPrice: 2, recruit: 'chaplain', name: 'Hermana Oria' },
   },
   {
     id: 'bosque', name: 'Bosque Hondo', type: 'forest', biome: 'forest',
     desc: 'Madera abundante, pero la vista no alcanza más allá de los troncos.',
-    x: 470, y: 245, links: ['prado', 'vado'], travel: 3,
+    x: 420, y: 300, links: ['prado', 'robledal', 'ermita', 'vado'], travel: 3,
     foes: ['shade', 'stalker', 'shade'], regen: ['shade', 'stalker'], loot: { materials: 9, gold: 10 },
   },
   {
     id: 'ruinas', name: 'Ruinas de Velar', type: 'ruins', biome: 'ruins',
     desc: 'Oro y piedra entre muros caídos. Algo grande duerme bajo el arco.',
-    x: 500, y: 525, links: ['prado', 'vado'], travel: 3,
-    foes: ['brute', 'shade'], regen: ['brute'], loot: { gold: 50, stone: 6 },
+    x: 420, y: 515, links: ['prado', 'cubil', 'vado'], travel: 3,
+    foes: ['brute', 'shade'], regen: ['brute', 'shade'], loot: { gold: 50, stone: 6 },
+  },
+  {
+    id: 'cubil', name: 'Cubil de las Sombras', type: 'den', biome: 'lair',
+    desc: 'Un foco de oscuridad. Mientras siga en pie, la noche avanza desde aquí hacia el castillo.',
+    x: 590, y: 555, links: ['ruinas', 'molino'], travel: 3,
+    foes: ['brute', 'shade', 'shade', 'stalker'], regen: [], loot: { gold: 40 }, source: true,
   },
   {
     id: 'vado', name: 'Vado del Cuervo', type: 'ford', biome: 'ford',
-    desc: 'El único paso del río. Quien lo guarde controla el camino.',
-    x: 700, y: 390, links: ['bosque', 'ruinas', 'torre'], travel: 3,
-    foes: ['brute', 'shade', 'stalker'], regen: ['shade', 'stalker'], loot: { stone: 6, materials: 4, gold: 25 },
+    desc: 'El único paso del río. Quien lo guarde controla el camino del sur.',
+    x: 600, y: 385, links: ['bosque', 'ruinas', 'paso', 'molino'], travel: 3,
+    foes: ['brute', 'stalker', 'shade'], regen: ['shade', 'stalker'], loot: { stone: 6, materials: 4, gold: 25 },
+  },
+  {
+    id: 'ermita', name: 'Ermita del Alba', type: 'shrine', biome: 'shrine',
+    desc: 'Un santuario profanado. Limpio, se puede rezar en él para curar cuerpo y temple.',
+    x: 560, y: 170, links: ['bosque', 'paso'], travel: 3,
+    foes: ['shade', 'shade'], regen: ['shade', 'shade'], loot: { gold: 10 }, prayers: 2,
+  },
+  {
+    id: 'paso', name: 'Paso del Lobo', type: 'mountain', biome: 'mountain',
+    desc: 'Un desfiladero lento de cruzar. Mucha piedra y buenas posiciones.',
+    x: 750, y: 235, links: ['ermita', 'vado', 'torre'], travel: 4,
+    foes: ['brute', 'stalker'], regen: ['brute', 'stalker'], loot: { stone: 10, materials: 2 },
+  },
+  {
+    id: 'molino', name: 'Aldea del Molino', type: 'village', biome: 'village',
+    desc: 'Una aldea tomada por las criaturas. Liberarla devuelve sus víveres y su gente.',
+    x: 765, y: 470, links: ['vado', 'cubil', 'marjal'], travel: 3,
+    foes: ['shade', 'stalker', 'shade'], regen: ['shade', 'stalker'], loot: { gold: 20 },
+    village: { foodPrice: 2, recruit: 'spearman', name: 'Tobías el molinero' },
+  },
+  {
+    id: 'marjal', name: 'Marjal Negro', type: 'bog', biome: 'bog',
+    desc: 'Agua negra y niebla. Entrar ya pesa en el ánimo.',
+    x: 895, y: 380, links: ['molino', 'torre'], travel: 3,
+    foes: ['stalker', 'shade', 'stalker'], regen: ['stalker', 'shade'], loot: { gold: 20, materials: 4 }, enterStress: 5,
   },
   {
     id: 'torre', name: 'Torre del Heraldo', type: 'lair', biome: 'lair',
     desc: 'El lugarteniente del Rey de la Noche guarda aquí el camino hacia el norte.',
-    x: 885, y: 235, links: ['vado'], travel: 2,
-    foes: ['brute', 'herald', 'stalker'], regen: ['brute', 'herald', 'stalker'], loot: { gold: 80 }, boss: true,
+    x: 890, y: 160, links: ['paso', 'marjal'], travel: 2,
+    foes: ['brute', 'herald', 'stalker'], regen: ['brute', 'herald', 'stalker'], loot: { gold: 80 }, boss: true, source: true,
   },
 ];
 
