@@ -1,0 +1,200 @@
+/* Combate en la maqueta HD-2D: fichas bajo los pies y textos flotantes. */
+
+.hd-battle-canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+.hd-battle-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.hd-battle-tint {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  mix-blend-mode: screen;
+}
+.hd-battle-tint.on {
+  opacity: 1;
+  transition: opacity 0.08s ease;
+}
+
+/* Ficha: barra de vida, estrés (grupo), estados y marcadores */
+.hd-plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transition: opacity 0.3s;
+}
+.hd-plate .hd-hp {
+  position: absolute;
+  left: -30px;
+  top: 10px;
+  width: 60px;
+  height: 6px;
+  background: #1a0c0c;
+  border: 1px solid #0b0907;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+.hd-plate .hd-hp > i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(180deg, #e04a3a, #a11d1d);
+  transition: width 0.3s ease;
+}
+.hd-plate.door .hd-hp > i {
+  background: #5a0c0c;
+}
+.hd-plate .hd-pips {
+  position: absolute;
+  left: -30px;
+  top: 19px;
+  display: flex;
+  gap: 1px;
+}
+.hd-plate .hd-pips i {
+  width: 5px;
+  height: 4px;
+  background: #2a2622;
+  border: 1px solid #0b0907;
+}
+.hd-plate .hd-pips i.on {
+  background: #f0eadc;
+}
+.hd-plate .hd-pips i.over {
+  background: #d23a2a;
+}
+.hd-plate .hd-status {
+  position: absolute;
+  left: -40px;
+  width: 80px;
+  top: calc(var(--head, -120px) - 4px);
+  text-align: center;
+  font-size: 18px;
+  text-shadow: 0 1px 3px #000;
+  white-space: nowrap;
+}
+.st-bleed { color: #ff5a3a; }
+.st-stun { color: #f2d24b; }
+.st-mark { color: #ff9a3a; }
+.st-guarded { color: #7aa8ff; }
+.st-guarding { color: #d8d2c0; }
+.st-steady { color: #fff0c0; }
+.hd-plate .hd-door {
+  position: absolute;
+  left: -12px;
+  top: calc(var(--head, -120px) - 30px);
+  font-size: 24px;
+  color: #ff3a2a;
+  text-shadow: 0 0 8px #000;
+  display: none;
+  animation: hd-pulse 0.9s ease-in-out infinite alternate;
+}
+.hd-plate.door .hd-door {
+  display: block;
+}
+.hd-plate .hd-chevron {
+  position: absolute;
+  left: -9px;
+  top: calc(var(--head, -120px) - 28px);
+  font-size: 18px;
+  color: #ffd27a;
+  text-shadow: 0 0 6px rgba(255, 200, 100, 0.8), 0 2px 0 #3a2a10;
+  display: none;
+  animation: hd-bob 0.8s ease-in-out infinite alternate;
+}
+.hd-plate.active .hd-chevron {
+  display: block;
+}
+@keyframes hd-bob {
+  to {
+    transform: translateY(-5px);
+  }
+}
+@keyframes hd-pulse {
+  to {
+    opacity: 0.5;
+  }
+}
+
+/* Textos flotantes: números de daño con contorno, como en Octopath */
+.hd-float {
+  position: absolute;
+  transform: translate(-50%, 0);
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-size: 30px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow:
+    -1px 0 0 #1a1220,
+    1px 0 0 #1a1220,
+    0 -1px 0 #1a1220,
+    0 2px 0 #1a1220,
+    0 0 8px rgba(0, 0, 0, 0.8);
+  white-space: nowrap;
+  opacity: 0;
+  animation: hd-float 1.2s ease-out forwards;
+}
+.hd-float.dmg {
+  color: #fff4e8;
+  font-size: 36px;
+  -webkit-text-stroke: 1px #1a1220;
+}
+.hd-float.dmg.crit {
+  color: #ffd25a;
+  font-size: 46px;
+}
+.hd-float.dmg.bleed {
+  color: #ff8a5a;
+}
+.hd-float.heal {
+  color: #8af0a0;
+}
+.hd-float.heal.crit {
+  font-size: 40px;
+}
+.hd-float.stress {
+  color: #f0e8ff;
+  font-size: 19px;
+  margin-top: 26px;
+}
+.hd-float.relief {
+  color: #b8d4ff;
+  font-size: 19px;
+  margin-top: 26px;
+}
+.hd-float.status,
+.hd-float.miss {
+  color: #f4ecd8;
+  font-size: 20px;
+}
+.hd-float.crit-label {
+  color: #ffd25a;
+  font-size: 22px;
+}
+@keyframes hd-float {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px) scale(0.6);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(-50%, -10px) scale(1.15);
+  }
+  25% {
+    transform: translate(-50%, -14px) scale(1);
+  }
+  75% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -52px) scale(0.95);
+  }
+}

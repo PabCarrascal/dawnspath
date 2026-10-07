@@ -4,6 +4,7 @@ import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from './rules/Combat';
 import { ENCOUNTERS } from './rules/data';
 import type { Fighter } from './rules/types';
+import { Hd2dCombatView } from '../hd2d/battle';
 import { CombatOutcome, startCombat } from './session';
 import type { TimeOfDay } from './view/backdrop';
 
@@ -57,12 +58,16 @@ async function run(id: string, seed: number) {
   window.addEventListener('keydown', unlock, { once: true });
   unlock();
 
+  // `?vista=2d` usa la escena lateral anterior; por defecto, la maqueta HD-2D.
+  const flat = params.get('vista') === '2d';
+  const stage = document.getElementById('stage')!;
   const session = await startCombat({
-    stage: document.getElementById('stage')!,
+    stage,
     overlay: document.getElementById('overlay')!,
     combat,
     time,
     seed,
+    view: flat ? undefined : (hooks) => Hd2dCombatView.create(stage, combat, time, seed, hooks),
   });
   if (import.meta.env.DEV) Object.assign(window, { combat, view: session.view });
   const r = await session.done;

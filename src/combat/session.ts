@@ -4,7 +4,17 @@ import type { Combat } from './rules/Combat';
 import type { CombatEvent } from './rules/types';
 import { CombatUi } from './ui';
 import type { TimeOfDay } from './view/backdrop';
-import { CombatView } from './view/CombatView';
+import { CombatView, ViewHooks } from './view/CombatView';
+
+export type { ViewHooks };
+
+/** Lo que el bucle de combate necesita de una vista (2D en PixiJS o maqueta HD-2D). */
+export interface BattleView {
+  play(events: CombatEvent[], ui: Parameters<CombatView['play']>[1]): Promise<void>;
+  setTargets(ids: number[], mode: 'enemy' | 'ally'): void;
+  headOf(id: number): { x: number; y: number };
+  destroy(): void;
+}
 
 export type CombatOutcome = 'won' | 'lost' | 'fled';
 
@@ -30,10 +40,12 @@ export interface SessionOptions {
   seed: number;
   /** Frase del narrador al empezar. */
   intro?: string;
+  /** Vista alternativa (p. ej. la maqueta HD-2D); por defecto, la escena 2D. */
+  view?: (hooks: ViewHooks) => Promise<BattleView>;
 }
 
 export interface CombatSession {
-  view: CombatView;
+  view: BattleView;
   ui: CombatUi;
   /** Se resuelve cuando el combate acaba y el narrador ha hablado. */
   done: Promise<CombatOutcome>;
@@ -53,7 +65,11 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
   const done = new Promise<CombatOutcome>((r) => (resolve = r));
 
   const hooks = { onHover: (fid: number | null) => hover(fid), onClick: (fid: number) => click(fid) };
-  const view = o.app ? CombatView.mount(o.app, combat, time, seed, hooks) : await CombatView.create(o.stage, combat, time, seed, hooks);
+  const view: BattleView = o.view
+    ? await o.view(hooks)
+    : o.app
+      ? CombatView.mount(o.app, combat, time, seed, hooks)
+      : await CombatView.create(o.stage, combat, time, seed, hooks);
   const ui = new CombatUi(o.overlay, combat, { onSkill: (sid) => choose(sid), onRetreat: () => retreat() });
 
   const uiHooks = {

@@ -1,0 +1,118 @@
+/* Prueba de estilo HD-2D: interfaz mínima, al estilo de los menús de Octopath. */
+
+:root {
+  --hd-ink: #1a1220;
+  --hd-panel: rgba(16, 14, 24, 0.78);
+  --hd-edge: #c9a24a;
+  --hd-text: #f4ecd8;
+  --hd-dim: rgba(244, 236, 216, 0.66);
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #101018;
+  color: var(--hd-text);
+  font-family: 'IM Fell English', Georgia, serif;
+}
+#stage canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+#ui button {
+  pointer-events: auto;
+}
+
+.hd-title {
+  position: absolute;
+  top: 18px;
+  left: 22px;
+  padding: 10px 20px 12px;
+  background: linear-gradient(90deg, var(--hd-panel), rgba(16, 14, 24, 0));
+  border-left: 3px solid var(--hd-edge);
+}
+.hd-title p {
+  margin: 0;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  letter-spacing: 0.2em;
+  font-size: 13px;
+  color: var(--hd-edge);
+}
+.hd-title h1 {
+  margin: 2px 0 0;
+  font-family: 'IM Fell English SC', Georgia, serif;
+  font-weight: 400;
+  font-size: 34px;
+  text-shadow: 0 2px 0 var(--hd-ink);
+}
+
+.hd-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px;
+  max-width: calc(100vw - 32px);
+}
+.hd-group {
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--hd-panel);
+  border: 1px solid rgba(201, 162, 74, 0.5);
+  border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+.hd-group button {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--hd-dim);
+  font-family: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.hd-group button:hover {
+  color: var(--hd-text);
+}
+.hd-group button.on {
+  background: linear-gradient(180deg, #e8c46a, #b08a34);
+  color: var(--hd-ink);
+}
+.hd-hint {
+  position: absolute;
+  right: 22px;
+  bottom: 28px;
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--hd-dim);
+  text-shadow: 0 1px 2px #000;
+}
+
+@media (max-width: 700px) {
+  .hd-hint {
+    display: none;
+  }
+  .hd-title h1 {
+    font-size: 26px;
+  }
+}
