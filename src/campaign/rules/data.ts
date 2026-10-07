@@ -141,7 +141,7 @@ export const MAP: NodeDef[] = [
     foes: ['brute', 'shade'], regen: ['brute', 'shade'], loot: { gold: 50, stone: 6 },
   },
   {
-    id: 'cubil', name: 'Cubil de las Sombras', type: 'den', biome: 'lair',
+    id: 'cubil', name: 'Cubil de las Sombras', type: 'den', biome: 'den',
     desc: 'Un foco de oscuridad. Mientras siga en pie, la noche avanza desde aquí hacia el castillo.',
     x: 590, y: 555, links: ['ruinas', 'molino'], travel: 3,
     foes: ['brute', 'shade', 'shade', 'stalker'], regen: [], loot: { gold: 40 }, source: true,

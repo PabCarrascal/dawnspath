@@ -6,14 +6,12 @@ import type { BattleView, ViewHooks } from '../combat/session';
 import { anim, ease, lerp } from '../core/anim';
 import { Rng } from '../core/rng';
 import { SpriteKind, spriteSheet } from './characters';
-import { BATTLE, buildForest, PixelSprite } from './forest';
+import { buildDiorama, Diorama } from './diorama/build';
+import { BATTLE, slot } from './diorama/grid';
+import { PixelSprite } from './sprite';
 import { LookController, Mode } from './look';
 import { Px } from './pixel';
 import { buildPost } from './post';
-
-/** Distancia entre posiciones de un mismo bando y hueco entre los dos bandos. */
-const RANK_GAP = 1.25;
-const SIDE_GAP = 1.0;
 
 /** Habilidades que se lanzan a distancia (flecha o proyectil mágico). */
 const ARROWS = new Set(['shot', 'markShot', 'volley', 'pinpoint']);
@@ -59,7 +57,7 @@ export class Hd2dCombatView implements BattleView {
   private scene = new THREE.Scene();
   private camera: THREE.PerspectiveCamera;
   private post: ReturnType<typeof buildPost>;
-  private forest: ReturnType<typeof buildForest>;
+  private forest: Diorama;
   private look: LookController;
   private layer: HTMLElement;
   private units = new Map<number, Unit>();
@@ -84,6 +82,7 @@ export class Hd2dCombatView implements BattleView {
     mode: Mode,
     seed: number,
     private hooks: ViewHooks,
+    dioramaSeed = 7,
   ) {
     this.rng = new Rng(seed);
     this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
@@ -99,7 +98,7 @@ export class Hd2dCombatView implements BattleView {
     this.scene.background = new THREE.Color();
     this.scene.fog = new THREE.Fog(0, 20, 60);
     this.camera = new THREE.PerspectiveCamera(26, window.innerWidth / window.innerHeight, 0.5, 200);
-    this.forest = buildForest(7, { clearing: { x: BATTLE.x, z: BATTLE.z, rx: 6.6, rz: 1.9 } });
+    this.forest = buildDiorama(combat.encounter.biome ?? 'forest', { seed: dioramaSeed });
     this.scene.add(this.forest.group);
     this.home = new THREE.Vector3(BATTLE.x, 0.55, BATTLE.z);
     this.camFocus = this.home.clone();
@@ -124,8 +123,9 @@ export class Hd2dCombatView implements BattleView {
     this.frame();
   }
 
-  static async create(el: HTMLElement, combat: Combat, mode: Mode, seed: number, hooks: ViewHooks) {
-    return new Hd2dCombatView(el, combat, mode, seed, hooks);
+  /** `dioramaSeed` fija el aspecto de la maqueta (el mismo nodo, la misma maqueta). */
+  static async create(el: HTMLElement, combat: Combat, mode: Mode, seed: number, hooks: ViewHooks, dioramaSeed = 7) {
+    return new Hd2dCombatView(el, combat, mode, seed, hooks, dioramaSeed);
   }
 
   // ───────────────────────── montaje ─────────────────────────
@@ -175,11 +175,8 @@ export class Hd2dCombatView implements BattleView {
   }
 
   private slot(f: Fighter) {
-    const dir = f.side === 'party' ? -1 : 1;
-    const x = BATTLE.x + dir * (SIDE_GAP + (f.rank - 1) * RANK_GAP);
-    // Filas alternas algo más atrás, para que no se tapen.
-    const z = BATTLE.z + (f.rank % 2 === 0 ? -0.45 : 0.25);
-    return new THREE.Vector3(x, 0, z);
+    const p = slot(f.side, f.rank);
+    return new THREE.Vector3(p.x, 0, p.z);
   }
 
   /** Coloca a cada combatiente en su puesto (animado al cambiar de fila). */

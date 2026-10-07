@@ -1,20 +1,18 @@
 import '../combat/combat.css';
 import './campaign.css';
-import { Application } from 'pixi.js';
 import { audio } from '../audio/Audio';
 import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from '../combat/rules/Combat';
 import { startCombat } from '../combat/session';
-import { anim } from '../core/anim';
-import { GROUND_Y, TimeOfDay } from '../combat/view/backdrop';
 import { seedFromString } from '../core/rng';
 import { Campaign, formatRes } from './rules/Campaign';
 import { BUILDINGS, CBAL, KIND_NAMES, NODE, STRUCTURES } from './rules/data';
 import { EVENT } from './rules/events';
 import type { ActionResult, BuildingId, CampaignState, LogLine, Soldier } from './rules/types';
 import { MapView } from './view/MapView';
-import { BUILDING_X, paintBuildings, paintCastleBack, paintNodeProps } from './view/props';
-import { PARTY_X, SceneView, soldierFighter } from './view/SceneView';
+import { Hd2dCombatView } from '../hd2d/battle';
+import type { Mode } from '../hd2d/look';
+import { Stage3D } from '../hd2d/stage';
 
 // `?partida=nombre` usa otra ranura de guardado (para probar sin tocar la partida principal).
 const slot = new URLSearchParams(location.search).get('partida');
@@ -25,12 +23,12 @@ const stage = $('#stage');
 const overlay = $('#overlay');
 const ui = $('#ui');
 
-let app: Application;
+
 let campaign: Campaign;
-let scene: SceneView | null = null;
-/** Reposiciona etiquetas HTML sobre la escena al cambiar el tamaño. */
-let onLayout: (() => void) | null = null;
-window.addEventListener('resize', () => onLayout?.());
+/** La maqueta en pantalla (castillo o nodo); se libera durante los combates. */
+let scene: Stage3D | null = null;
+/** Clave de la maqueta actual, para reutilizarla al cambiar solo la hora. */
+let sceneKey = '';
 
 // ───────────────────────── guardado ─────────────────────────
 
@@ -102,10 +100,14 @@ async function fade(fn: () => void | Promise<void>) {
   f.classList.remove('on');
 }
 
-function setScene(s: SceneView | null) {
-  scene?.destroy();
+function setScene(s: Stage3D | null, key = '') {
+  scene?.dispose();
   scene = s;
+  sceneKey = key;
 }
+
+/** Semilla estable por nodo: la misma maqueta cada vez que se vuelve. */
+const nodeSeed = (id: string) => (seedFromString(id) ^ campaign.state.seed) >>> 0;
 
 /**
  * Abre una ventana. Si ya hay una abierta con la misma `key`, solo cambia su
@@ -159,14 +161,14 @@ function resLine(r: { gold: number; materials: number; stone: number }) {
   return `<span title="Oro">◉ ${r.gold}</span><span title="Materiales">▤ ${r.materials}</span><span title="Piedra">◆ ${r.stone}</span>`;
 }
 
-function setNight(tod: TimeOfDay) {
-  audio.setNight(tod === 'night' ? 1 : tod === 'dusk' ? 0.7 : 0.45);
+function setNight(mode: Mode) {
+  audio.setNight(mode === 'night' || mode === 'dark' ? 1 : mode === 'dusk' ? 0.7 : 0.45);
 }
 
-/** Hora de la escena: en un nodo oscuro siempre es de noche. */
-const timeOfDay = (): TimeOfDay => {
+/** Hora de la escena: en un nodo oscuro reina la oscuridad. */
+const timeOfDay = (): Mode => {
   const e = campaign.state.exp;
-  if (e && campaign.node(e.node).dark) return 'night';
+  if (e && campaign.node(e.node).dark) return 'dark';
   return (e?.hours ?? 12) > 4 ? 'day' : 'dusk';
 };
 
@@ -183,10 +185,6 @@ function darkHud() {
 // ───────────────────────── arranque ─────────────────────────
 
 async function boot() {
-  app = new Application();
-  await app.init({ resizeTo: window, antialias: true, background: '#050407', resolution: Math.min(window.devicePixelRatio || 1, 2), autoDensity: true });
-  stage.appendChild(app.canvas);
-  app.ticker.add((t) => anim.update(t.deltaMS));
   const unlock = () => audio.unlock();
   window.addEventListener('pointerdown', unlock, { once: true });
   window.addEventListener('keydown', unlock, { once: true });
@@ -197,7 +195,7 @@ function showTitle() {
   const saved = load();
   const preview = new Campaign(saved?.seed ?? 1, saved ?? undefined);
   campaign = preview;
-  setScene(castleScene('dusk'));
+  castleScene('dusk');
   ui.innerHTML = `
     <div class="cp-title">
       <p class="kicker">Dawn's Path · fase 2</p>
@@ -254,9 +252,12 @@ function intro() {
 
 // ───────────────────────── castillo ─────────────────────────
 
-function castleScene(tod: TimeOfDay) {
-  const s = new SceneView(app, tod, campaign.state.seed, 'castle', (layer) => layer(paintCastleBack(tod), 0.28));
-  s.addPainted(paintBuildings(tod, campaign.state.buildings));
+/** El patio del castillo con los soldados que esperan en él. */
+function castleScene(mode: Mode) {
+  const c = campaign;
+  const home = c.state.soldiers.filter((x) => x.alive && x.where === 'castle').slice(0, 8);
+  const s = new Stage3D(stage, 'castle', { seed: c.state.seed, mode, framing: 'castle', scene: { party: home.map((x) => x.kind), fire: false } });
+  setScene(s, 'castle');
   return s;
 }
 
@@ -265,14 +266,6 @@ function showCastle() {
   closeModal();
   setNight('dusk');
   const s = castleScene('dusk');
-  setScene(s);
-  // Los soldados que esperan en el patio
-  const home = c.state.soldiers.filter((x) => x.alive && x.where === 'castle');
-  const spots = [470, 530, 820, 870, 1120, 1180, 410, 760];
-  home.slice(0, spots.length).forEach((x, i) => {
-    const v = s.addFigure(soldierFighter(x, i + 1, c.maxHp(x)), spots[i], i % 2 ? -1 : 1, 0.62);
-    v.eventMode = 'none';
-  });
 
   ui.innerHTML = `
     ${castleHud()}
@@ -296,16 +289,17 @@ function showCastle() {
       </section>
     </footer>`;
 
-  const place = () => {
-    for (const b of Object.keys(BUILDINGS) as BuildingId[]) {
-      const el = $(`[data-b="${b}"]`, ui);
-      const p = s.toScreen(BUILDING_X[b], GROUND_Y - (b === 'tavern' ? 330 : 250));
-      el.style.left = `${p.x}px`;
+  // Las etiquetas de los edificios siguen a la maqueta (la cámara deriva despacio).
+  const labels = (Object.keys(BUILDINGS) as BuildingId[]).map((b) => [$(`[data-b="${b}"]`, ui), s.diorama.anchors[b]] as const);
+  s.onFrame = () => {
+    for (const [el, at] of labels) {
+      if (!at || !el.isConnected) continue;
+      const p = s.project(at);
+      const half = el.offsetWidth / 2 + 8;
+      el.style.left = `${Math.min(window.innerWidth - half, Math.max(half, p.x))}px`;
       el.style.top = `${p.y}px`;
     }
   };
-  place();
-  onLayout = place;
   for (const el of ui.querySelectorAll<HTMLElement>('[data-b]')) el.addEventListener('click', () => showBuilding(el.dataset.b as BuildingId));
   $('[data-act="prep"]', ui).addEventListener('click', () => showPrep());
   $('[data-act="map"]', ui).addEventListener('click', () => showMap());
@@ -514,32 +508,44 @@ function showPrep(selected?: string[]) {
 
 // ───────────────────────── nodo ─────────────────────────
 
-function nodeScene(tod: TimeOfDay) {
+/** La maqueta del nodo: el grupo en el claro, su campamento o torre, la guardia y el botín. */
+function nodeScene(mode: Mode) {
   const c = campaign;
   const e = c.state.exp!;
   const def = NODE[e.node];
   const n = c.node(e.node);
-  const seed = (seedFromString(def.id) ^ c.state.seed) >>> 0;
-  const s = new SceneView(app, tod, seed, def.biome, def.id === 'castle' ? (layer) => layer(paintCastleBack(tod), 0.28) : undefined);
   const loot = !n.foes.length && !n.looted && Object.keys(def.loot).length > 0 && def.id !== 'castle';
-  s.addPainted(paintNodeProps(tod, { structure: n.structure, loot }));
-  c.party.forEach((x, i) => s.addFigure(soldierFighter(x, i + 1, c.maxHp(x)), PARTY_X[i]));
-  n.garrison.forEach((id, i) => {
-    const g = c.soldier(id)!;
-    s.addFigure(soldierFighter(g, i + 1, c.maxHp(g)), (n.structure === 'tower' ? 1050 : 960) - i * 70, -1, 0.9);
+  const key = JSON.stringify([e.node, e.party, n.garrison, n.structure, loot]);
+  // Si solo cambia la hora (al caer la noche), se reutiliza la maqueta y la luz cambia suavemente.
+  if (scene && sceneKey === key) {
+    scene.setMode(mode);
+    return scene;
+  }
+  const s = new Stage3D(stage, def.biome, {
+    seed: nodeSeed(def.id),
+    mode,
+    framing: def.id === 'castle' ? 'castle' : 'node',
+    scene: {
+      party: c.party.map((x) => x.kind),
+      garrison: n.garrison.map((id) => c.soldier(id)!.kind),
+      structure: n.structure,
+      loot,
+      fire: !!n.structure || mode === 'night',
+    },
   });
+  setScene(s, key);
   return s;
 }
 
-function showNode(tod: TimeOfDay = timeOfDay()) {
+function showNode(mode: Mode = timeOfDay()) {
   const c = campaign;
   const e = c.state.exp!;
   const def = NODE[e.node];
   const n = c.node(e.node);
   closeModal();
-  onLayout = null;
-  setNight(tod);
-  setScene(nodeScene(tod));
+  setNight(mode);
+  nodeScene(mode);
+  const tod = mode;
 
   const hidden = def.links.filter((id) => !c.node(id).seen).length;
   const canLoot = !n.foes.length && !n.looted && Object.keys(def.loot).length > 0 && e.node !== 'castle';
@@ -728,8 +734,7 @@ async function fight() {
   const c = campaign;
   const p = c.state.pending!;
   closeModal();
-  onLayout = null;
-  const tod: TimeOfDay = p.night ? 'night' : timeOfDay();
+  const tod: Mode = c.node(p.node).dark ? 'dark' : p.night ? 'night' : timeOfDay();
   setNight(tod);
   const combat = new Combat(c.encounter(), p.seed);
   await fade(() => {
@@ -738,7 +743,15 @@ async function fight() {
   });
   const def = NODE[p.node];
   const intro = p.kind === 'ambush' ? 'Las brasas apenas alumbran. Están aquí.' : p.kind === 'road' ? 'Nadie vigilaba el camino. Algo os esperaba.' : def.boss ? 'El Heraldo alza la guadaña. El norte entero contiene el aliento.' : undefined;
-  const session = await startCombat({ app, stage, overlay, combat, time: tod, seed: p.seed, intro });
+  const session = await startCombat({
+    stage,
+    overlay,
+    combat,
+    time: tod === 'dark' ? 'night' : tod,
+    seed: p.seed,
+    intro,
+    view: (hooks) => Hd2dCombatView.create(stage, combat, tod, p.seed, hooks, nodeSeed(p.node)),
+  });
   if (import.meta.env.DEV) Object.assign(window, { combat, view: session.view });
   await session.done;
   const r = c.resolveCombat(combat);
@@ -747,7 +760,7 @@ async function fight() {
   if (!r.ok) return toast(r.reason, 'bad');
   if (c.state.phase === 'won' || c.state.phase === 'lost') return showEnd();
   if (c.state.phase === 'castle') return showCastle();
-  if (p.night) {
+  if (p.kind === 'ambush') {
     showNode();
     return showReport(() => void 0);
   }
@@ -763,9 +776,8 @@ function showEnd() {
   const s = c.state;
   const won = s.phase === 'won';
   closeModal();
-  onLayout = null;
   setNight(won ? 'day' : 'night');
-  setScene(castleScene(won ? 'day' : 'night'));
+  castleScene(won ? 'day' : 'dark');
   audio.play(won ? 'victory' : 'defeat');
   const fallen = s.soldiers.filter((x) => !x.alive);
   ui.innerHTML = `

@@ -3,14 +3,31 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { audio } from '../audio/Audio';
 import { mountSoundControl } from '../audio/SoundControl';
-import { buildForest } from './forest';
+import type { Biome } from '../combat/rules/data';
+import { buildDiorama } from './diorama/build';
 import { LookController, Mode } from './look';
 import { buildPost } from './post';
 
 /**
- * Prueba de estilo HD-2D: el Bosque Hondo como maqueta en 3D con personajes
- * en pixel art, desenfoque de maqueta, bloom y luz según la hora.
+ * Prueba de estilo HD-2D: cada bioma como maqueta en 3D con personajes en
+ * pixel art, desenfoque de maqueta, bloom y luz según la hora.
+ * `?bioma=forest|meadow|…` y `?hora=day|dusk|night|dark`.
  */
+const BIOME_NAMES: Record<Biome, string> = {
+  forest: 'Bosque Hondo',
+  meadow: 'Prado Ceniciento',
+  ruins: 'Ruinas de Velar',
+  ford: 'Vado del Cuervo',
+  village: 'Aldea de Robledal',
+  shrine: 'Ermita del Alba',
+  mountain: 'Paso del Lobo',
+  bog: 'Marjal Negro',
+  den: 'Cubil de las Sombras',
+  lair: 'Torre del Heraldo',
+  castle: 'Castillo del Alba',
+};
+const params = new URLSearchParams(location.search);
+const biome = ((Object.keys(BIOME_NAMES) as Biome[]).find((b) => b === params.get('bioma')) ?? 'forest') as Biome;
 const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -26,7 +43,9 @@ scene.fog = new THREE.Fog(0xd8dcc0, 26, 70);
 
 // Teleobjetivo y cámara alta: aplana la perspectiva, como en una maqueta fotografiada.
 const camera = new THREE.PerspectiveCamera(26, window.innerWidth / window.innerHeight, 0.5, 200);
-const forest = buildForest(7);
+const forest = buildDiorama(biome, {
+  scene: { party: ['hero', 'spearman', 'archer', 'chaplain'], structure: biome === 'castle' || biome === 'village' ? null : 'camp', fire: true, loot: biome !== 'castle' },
+});
 scene.add(forest.group);
 camera.position.copy(forest.focus).add(new THREE.Vector3(0, 13.5, 25));
 
@@ -44,7 +63,6 @@ controls.maxAzimuthAngle = 0.7;
 controls.update();
 
 const post = buildPost(renderer, scene, camera);
-const params = new URLSearchParams(location.search);
 const initial = (['day', 'dusk', 'night', 'dark'] as Mode[]).find((m) => m === params.get('hora')) ?? 'dusk';
 const look = new LookController(scene, renderer, forest, post, initial);
 
@@ -92,8 +110,9 @@ const ui = document.getElementById('ui')!;
 ui.innerHTML = `
   <header class="hd-title">
     <p>Prueba de estilo · HD-2D</p>
-    <h1>Bosque Hondo</h1>
+    <h1>${BIOME_NAMES[biome]}</h1>
   </header>
+  <nav class="hd-biomes">${(Object.keys(BIOME_NAMES) as Biome[]).map((b) => `<button data-biome="${b}" class="${b === biome ? 'on' : ''}">${BIOME_NAMES[b]}</button>`).join('')}</nav>
   <nav class="hd-panel">
     <div class="hd-group">${(Object.keys(LABELS) as Mode[]).map((m) => `<button data-mode="${m}">${LABELS[m]}</button>`).join('')}</div>
     <div class="hd-group">
@@ -114,6 +133,14 @@ for (const b of ui.querySelectorAll<HTMLButtonElement>('[data-mode]')) {
     audio.setNight(m === 'day' ? 0.2 : m === 'dusk' ? 0.6 : 1);
     audio.play(m === 'night' || m === 'dark' ? 'nightfall' : 'dawn');
     syncModes();
+  });
+}
+for (const b of ui.querySelectorAll<HTMLButtonElement>('[data-biome]')) {
+  b.addEventListener('click', () => {
+    const url = new URL(location.href);
+    url.searchParams.set('bioma', b.dataset.biome!);
+    url.searchParams.set('hora', look.mode);
+    location.href = url.toString();
   });
 }
 for (const b of ui.querySelectorAll<HTMLButtonElement>('[data-fx]')) {

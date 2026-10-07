@@ -105,34 +105,45 @@ export class Px {
 
 // ───────────────────────── texturas del terreno ─────────────────────────
 
-const GRASS = [0x3f7a2e, 0x4c8c34, 0x5a9e3c, 0x6cb044];
-const DIRT = [0x5a3a22, 0x6b4628, 0x7a5230, 0x8a5e38];
-const PATH = [0x9a7448, 0xa8825a, 0xb48e62, 0x8c6840];
-const STONE = [0x6a6a72, 0x7c7c84, 0x8e8e96, 0x5a5a62];
+export const GRASS = [0x3f7a2e, 0x4c8c34, 0x5a9e3c, 0x6cb044];
+export const DIRT = [0x5a3a22, 0x6b4628, 0x7a5230, 0x8a5e38];
+export const PATH = [0x9a7448, 0xa8825a, 0xb48e62, 0x8c6840];
+export const STONE = [0x6a6a72, 0x7c7c84, 0x8e8e96, 0x5a5a62];
 
-export function grassTop(seed: number) {
+/** Paletas de suelo por bioma: hierba, tierra y camino. */
+export const GROUND = {
+  green: { grass: GRASS, dirt: DIRT, path: PATH },
+  meadow: { grass: [0x4f8f34, 0x5ea43e, 0x6cb648, 0x82c858], dirt: DIRT, path: [0xb08a58, 0xbc9666, 0xc8a270, 0xa07a4c] },
+  dry: { grass: [0x6a8a3a, 0x789a42, 0x86a84c, 0x9ab85a], dirt: [0x6a4a2a, 0x7a5630, 0x8a6238, 0x9a6e40], path: [0xa89070, 0xb49c7c, 0xc0a888, 0x988060] },
+  bog: { grass: [0x34442a, 0x3e4e2e, 0x4a5a34, 0x58683c], dirt: [0x2e2418, 0x3a2e1e, 0x463824, 0x52422a], path: [0x5a4a32, 0x66553a, 0x726042, 0x4e3e2a] },
+  ash: { grass: [0x34303a, 0x3e3944, 0x48424e, 0x2a2630], dirt: [0x2a2028, 0x34282e, 0x3e3036, 0x48383e], path: [0x4a4048, 0x564a52, 0x625660, 0x3e343c] },
+  alpine: { grass: [0x4a6a3a, 0x557544, 0x60804c, 0x6e8e58], dirt: [0x5a5048, 0x665a50, 0x726458, 0x4e463e], path: [0x8a8478, 0x969084, 0xa29c90, 0x7a7468] },
+};
+export type GroundKey = keyof typeof GROUND;
+
+export function grassTop(seed: number, tones = GRASS) {
   const rng = new Rng(seed);
   const p = new Px(16, 16);
-  p.noise(rng, GRASS, [2, 4, 3, 1]);
+  p.noise(rng, tones, [2, 4, 3, 1]);
   // Briznas: trazos verticales de 2 px, más claros arriba
   for (let i = 0; i < 10; i++) {
     const x = rng.int(0, 15);
     const y = rng.int(0, 15);
-    p.wrap(x, y, 0x7cc050);
-    p.wrap(x, y + 1, 0x4c8c34);
+    p.wrap(x, y, tones[3]);
+    p.wrap(x, y + 1, tones[1]);
   }
   // Alguna flor diminuta
   if (rng.chance(0.6)) p.set(rng.int(1, 14), rng.int(1, 14), rng.pick([0xf0e070, 0xf0f0f0, 0xe07090]));
   return p;
 }
 
-export function grassSide(seed: number) {
+export function grassSide(seed: number, grass = GRASS, soil = DIRT) {
   const rng = new Rng(seed);
   const p = new Px(16, 16);
-  p.noise(rng, DIRT, [2, 3, 3, 1]);
+  p.noise(rng, soil, [2, 3, 3, 1]);
   for (let x = 0; x < 16; x++) {
     const depth = 3 + rng.int(0, 2);
-    for (let y = 0; y < depth; y++) p.set(x, y, y === depth - 1 ? 0x3f7a2e : rng.pick(GRASS.slice(1)));
+    for (let y = 0; y < depth; y++) p.set(x, y, y === depth - 1 ? grass[0] : rng.pick(grass.slice(1)));
   }
   for (let i = 0; i < 3; i++) {
     const x = rng.int(1, 14);
@@ -143,10 +154,10 @@ export function grassSide(seed: number) {
   return p;
 }
 
-export function dirt(seed: number) {
+export function dirt(seed: number, tones = DIRT) {
   const rng = new Rng(seed);
   const p = new Px(16, 16);
-  p.noise(rng, DIRT, [2, 3, 3, 1]);
+  p.noise(rng, tones, [2, 3, 3, 1]);
   for (let i = 0; i < 4; i++) {
     const x = rng.int(0, 14);
     const y = rng.int(0, 15);
@@ -164,10 +175,10 @@ export function dirt(seed: number) {
   return p;
 }
 
-export function pathTop(seed: number) {
+export function pathTop(seed: number, tones = PATH) {
   const rng = new Rng(seed);
   const p = new Px(16, 16);
-  p.noise(rng, PATH, [3, 3, 2, 1]);
+  p.noise(rng, tones, [3, 3, 2, 1]);
   for (let i = 0; i < 6; i++) {
     const x = rng.int(0, 14);
     const y = rng.int(0, 14);
@@ -178,10 +189,10 @@ export function pathTop(seed: number) {
   return p;
 }
 
-export function stone(seed: number) {
+export function stone(seed: number, tones = STONE) {
   const rng = new Rng(seed);
   const p = new Px(16, 16);
-  p.noise(rng, STONE, [3, 3, 2, 1]);
+  p.noise(rng, tones, [3, 3, 2, 1]);
   for (let i = 0; i < 3; i++) {
     let x = rng.int(0, 15);
     let y = rng.int(0, 15);
@@ -307,6 +318,127 @@ export function fern(seed: number) {
         p.set(x + 1, y + rng.int(0, 1), 0x5a9e3c);
       }
     }
+  }
+  return p;
+}
+
+// ───────────────────────── materiales de construcción y suelos ─────────────────────────
+
+/** Adoquines redondeados con juntas oscuras. */
+export function cobble(seed: number, tones = [0x8a8478, 0x9a9488, 0xaaa498, 0x7a7468]) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.rect(0, 0, 16, 16, 0x4a443e);
+  for (let row = 0; row < 4; row++) {
+    const off = row % 2 ? 2 : 0;
+    for (let col = -1; col < 4; col++) {
+      const x0 = col * 4 + off;
+      const c = rng.pick(tones);
+      for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) p.wrap(x0 + x, row * 4 + y, x + y === 0 ? tones[2] : x + y >= 3 ? tones[3] : c);
+    }
+  }
+  return p;
+}
+
+export function ash(seed: number) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.noise(rng, GROUND.ash.grass, [3, 3, 2, 2]);
+  for (let i = 0; i < 5; i++) p.set(rng.int(0, 15), rng.int(0, 15), rng.chance(0.5) ? 0x8a2a3a : 0x6a5a6a);
+  return p;
+}
+
+export function snow(seed: number) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.noise(rng, [0xe8eef4, 0xf4f8fc, 0xdce4ee, 0xc8d4e2], [3, 3, 2, 1]);
+  return p;
+}
+
+export function sand(seed: number) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.noise(rng, [0xc8b07a, 0xd4bc86, 0xbca06c, 0xe0c894], [3, 3, 2, 1]);
+  for (let i = 0; i < 5; i++) p.set(rng.int(0, 15), rng.int(0, 15), 0x8e8e96);
+  return p;
+}
+
+/** Roca de acantilado: vetas horizontales y grietas. */
+export function rock(seed: number, tones = [0x5e5a58, 0x6e6a66, 0x7e7a74, 0x4e4a48]) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.noise(rng, tones, [3, 3, 2, 2]);
+  for (let y = 2; y < 16; y += rng.int(3, 5)) for (let x = 0; x < 16; x++) if (rng.chance(0.7)) p.set(x, y, tones[3]);
+  for (let i = 0; i < 3; i++) p.set(rng.int(0, 15), rng.int(0, 15), tones[2]);
+  return p;
+}
+
+/** Sillares de piedra (murallas, capilla, ruinas). */
+export function bricks(seed: number, tones = [0x8a8478, 0x9a9488, 0xa8a296, 0x6a645c]) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.rect(0, 0, 16, 16, tones[3]);
+  for (let row = 0; row < 4; row++) {
+    const off = row % 2 ? 4 : 0;
+    for (let col = -1; col < 3; col++) {
+      const c = rng.pick(tones.slice(0, 3));
+      p.rect(((col * 8 + off) % 16 + 16) % 16, row * 4, 7, 3, c);
+      if (col * 8 + off + 7 > 16) p.rect(0, row * 4, (col * 8 + off + 7) % 16, 3, c);
+      p.set(((col * 8 + off) % 16 + 16) % 16, row * 4, tones[2]);
+    }
+  }
+  return p;
+}
+
+/** Enlucido con entramado de madera (casas de aldea). */
+export function plaster(seed: number) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.noise(rng, [0xece2cc, 0xf4ecd8, 0xe0d4ba], [3, 3, 1]);
+  const beam = [0x5a3820, 0x6a4428];
+  p.rect(0, 0, 16, 1, beam[0]);
+  p.rect(0, 15, 16, 1, beam[0]);
+  p.rect(0, 0, 1, 16, beam[1]);
+  p.rect(15, 0, 1, 16, beam[1]);
+  // Viga central y riostras cortas en las esquinas, como el entramado de verdad
+  p.rect(0, 7, 16, 1, beam[0]);
+  p.rect(7, 0, 1, 16, beam[1]);
+  for (let k = 0; k < 4; k++) {
+    p.set(1 + k, 6 - k, beam[1]);
+    p.set(14 - k, 6 - k, beam[1]);
+  }
+  return p;
+}
+
+/** Tejas en hileras. */
+export function roof(seed: number, tones = [0xb8402a, 0xc85032, 0xd8643c, 0x8a2e1e]) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  for (let row = 0; row < 4; row++) {
+    for (let x = 0; x < 16; x++) {
+      const c = rng.pick(tones.slice(0, 3));
+      for (let y = 0; y < 4; y++) p.set(x, row * 4 + y, y === 3 ? tones[3] : (x + row * 2) % 4 === 0 ? tones[3] : c);
+    }
+  }
+  return p;
+}
+
+export function thatch(seed: number) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  p.noise(rng, [0xb8984a, 0xc8a856, 0xa8883e, 0xd8b866], [3, 3, 2, 1]);
+  for (let x = 0; x < 16; x++) if (rng.chance(0.5)) p.rect(x, rng.int(0, 15), 1, 3, 0x8a6a2e);
+  return p;
+}
+
+export function planks(seed: number, tones = [0x7a5030, 0x8a5e38, 0x9a6a40, 0x553418]) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  for (let row = 0; row < 4; row++) {
+    const c = rng.pick(tones.slice(0, 3));
+    p.rect(0, row * 4, 16, 4, c);
+    p.rect(0, row * 4 + 3, 16, 1, tones[3]);
+    p.set(rng.int(1, 14), row * 4 + 1, tones[3]);
   }
   return p;
 }

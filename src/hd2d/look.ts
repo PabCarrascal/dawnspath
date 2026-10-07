@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Forest } from './forest';
+import type { Diorama } from './diorama/build';
 import type { Post } from './post';
 
 export type Mode = 'day' | 'dusk' | 'night' | 'dark';
@@ -69,7 +69,7 @@ export class LookController {
   constructor(
     private scene: THREE.Scene,
     private renderer: THREE.WebGLRenderer,
-    private forest: Forest,
+    private forest: Diorama,
     private post: Post,
     mode: Mode,
   ) {
@@ -129,20 +129,20 @@ export class LookController {
     const L = this.current();
     const f = this.forest;
     const fog = this.scene.fog as THREE.Fog;
+    // Cada bioma tiñe la niebla a su manera (rojiza en la guarida, verdosa en el marjal…).
+    const tint = f.biome.fog;
     fog.color.set(L.fog);
+    if (tint) fog.color.lerp(new THREE.Color(tint.color).multiplyScalar(this.mode === 'night' || this.mode === 'dark' ? 0.35 : 1), tint.mix);
     fog.near = L.fogNear;
     fog.far = L.fogFar;
-    (this.scene.background as THREE.Color).set(L.fog);
+    (this.scene.background as THREE.Color).copy(fog.color);
     f.sun.color.set(L.sun);
     f.sun.intensity = L.sunI;
     f.sun.position.set(...L.sunPos);
     f.hemi.color.set(L.hemiSky);
     f.hemi.groundColor.set(L.hemiGround);
     f.hemi.intensity = L.hemiI;
-    f.lamp.intensity = L.lamp;
-    f.fire.userData.base = L.fire;
-    const glow = Math.min(1, L.lamp / 14);
-    (f.lampGlow.material as THREE.MeshBasicMaterial).color.setRGB(0.42 + glow * 2.4, 0.36 + glow * 1.5, 0.26 + glow * 0.6);
+    f.setLights(L.lamp, L.fire);
     const motes = f.motes.material as THREE.ShaderMaterial;
     motes.uniforms.uColor.value.set(L.motes);
     motes.uniforms.uOpacity.value = L.motesOpacity;

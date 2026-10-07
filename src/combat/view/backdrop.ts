@@ -322,6 +322,7 @@ export function paintBackdrop(time: TimeOfDay, seed: number, biome: Biome = 'for
     ruins: [90, 140, 0.6],
     ford: [70, 120, 0.25],
     lair: [60, 90, 1],
+    den: [60, 90, 1],
     castle: [200, 300, 0.5],
     village: [170, 240, 0.35],
     shrine: [120, 160, 0.8],
@@ -404,7 +405,7 @@ export function paintBackdrop(time: TimeOfDay, seed: number, biome: Biome = 'for
       m.fill();
     }
   }
-  if (biome === 'lair') {
+  if (biome === 'lair' || biome === 'den') {
     // Estacas y un resplandor rojizo bajo la bruma
     const red = m.createLinearGradient(0, GROUND_Y - 200, 0, GROUND_Y);
     red.addColorStop(0, 'rgba(120, 20, 30, 0)');
