@@ -510,8 +510,41 @@ const castle: BiomeDef = {
     k.well(wx(9.5), wz(6.9));
     k.lamp(wx(17.5), wz(7));
     k.lamp(wx(9.5), wz(12.6));
-    for (const [x, z] of [[wx(3), wz(7)], [wx(7.4), wz(6.3)], [wx(23.4), wz(7)]]) k.barrel(x, z);
+    for (const [x, z] of [[wx(3), wz(7)], [wx(7.4), wz(6.3)], [wx(23.4), wz(7)], [wx(15.6), wz(6.7)]]) k.barrel(x, z);
     k.crate(wx(19.5), wz(6.4));
+    // Guirnaldas de fiesta entre los tejados
+    const flags = [0x8a1e1e, 0xd9a93a, 0x2f5aa8, 0xf4ecd8];
+    k.bunting(new THREE.Vector3(wx(6.2), 1.9, wz(5.2)), new THREE.Vector3(wx(12), 2.4, wz(5.2)), flags, 0.4);
+    k.bunting(new THREE.Vector3(wx(15), 2.4, wz(5.2)), new THREE.Vector3(wx(20.2), 1.9, wz(5.2)), flags, 0.4);
+    // Herrería: yunque, leña y armero; el herrero trabaja junto a la fragua
+    k.anvil(wx(7), wz(7.3));
+    k.woodpile(wx(2.8), wz(8.4), 0.3);
+    k.weaponRack(wx(3.4), wz(9.9), 0.25);
+    k.npc('smith', wx(7.7), wz(7.6), { left: true });
+    // Taberna: mesas fuera
+    k.table(wx(11.1), wz(7.6), 0.1);
+    k.table(wx(16.3), wz(7.9), -0.1);
+    // Mercadillo y carro de heno a la izquierda, con gallinas
+    k.stall(wx(5.6), wz(10.4), 0xc83a2a);
+    k.cart(wx(3), wz(11), 0.5);
+    k.sacks(wx(7.2), wz(9.9));
+    k.npc('villager', wx(5.6), wz(11.2), { left: false });
+    k.chickens(wx(7.4), wz(12.4), 4);
+    // Logia: sacos y madera para las obras
+    k.woodpile(wx(19.8), wz(7.6), -0.2);
+    k.sacks(wx(23.2), wz(8.3));
+    // Patio de armas a la derecha
+    k.dummy(wx(22.2), wz(9.6));
+    k.dummy(wx(23.6), wz(11));
+    k.archeryTarget(wx(23.4), wz(12.6), -0.7);
+    k.weaponRack(wx(21), wz(8.4), -0.2);
+    // Gente que cruza el patio y guardias en el adarve
+    k.npc('villager', wx(8.5), wz(8.2), { to: [wx(19), wz(8)], speed: 0.7 });
+    k.npc('spearman', wx(4), wz(2.6), { to: [wx(10), wz(2.6)], speed: 0.5, y: 3, scale: 0.85 });
+    k.npc('spearman', wx(17.5), wz(2.6), { to: [wx(23), wz(2.6)], speed: 0.45, y: 3, scale: 0.85 });
+    // Flores delante
+    k.planter(wx(8.6), wz(13.8), 1.4);
+    k.planter(wx(19.4), wz(13.8), 1.4);
     trees(k, (i, j) => (k.grid.at(i, j)!.type === 'grass' ? 0.3 : 0), () => ['round', autumn(k)], [0.8, 1.2]);
     greenery(k, 0.6, 0.4);
   },

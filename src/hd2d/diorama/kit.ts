@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { Rng } from '../../core/rng';
 import * as px from '../pixel';
-import { crossQuad, floaters, swaying } from '../sprite';
+import { SpriteKind, spriteSheet } from '../characters';
+import { crossQuad, floaters, PixelSprite, swaying } from '../sprite';
 import { BOTTOM, Grid, inClear, W, D, wx, wz } from './grid';
 
 type LeafKey = keyof typeof px.LEAF_TONES;
@@ -431,6 +432,231 @@ export class Kit {
     g.add(roof);
     g.add(this.box(0.18, 0.3, 0.05, this.glow(0xffc070, 'lamp'), 0, h * 0.7, r + 0.01));
     return this.add(g, x, z);
+  }
+
+  // ───────────────────────── patio del castillo ─────────────────────────
+
+  /** Muñeco de entrenamiento: poste, travesaño y saco de paja. */
+  dummy(x: number, z: number) {
+    const wood = this.mat('planks', () => px.planks(this.seed));
+    const g = new THREE.Group();
+    g.add(this.box(0.1, 1.4, 0.1, wood, 0, 0.7, 0));
+    g.add(this.box(0.8, 0.08, 0.08, wood, 0, 1.05, 0));
+    const sack = new THREE.Mesh(this.geo('sack', () => new THREE.CylinderGeometry(0.2, 0.22, 0.55, 7)), this.mat('thatch', () => px.thatch(this.seed), { flatShading: true }));
+    sack.position.y = 0.95;
+    g.add(sack);
+    const head = new THREE.Mesh(this.geo('dummyhead', () => new THREE.IcosahedronGeometry(0.15, 0)), this.mat('thatch', () => px.thatch(this.seed), { flatShading: true }));
+    head.position.y = 1.38;
+    g.add(head);
+    g.add(this.box(0.24, 0.06, 0.24, this.color(0x8a1e1e), 0, 1.5, 0));
+    return this.add(g, x, z, this.y(x, z), this.rng.next() - 0.5);
+  }
+
+  /** Armero con lanzas y escudos. */
+  weaponRack(x: number, z: number, rot = 0) {
+    const wood = this.mat('planks', () => px.planks(this.seed));
+    const steel = this.color(0xc8d0d8, { metalness: 0.5, roughness: 0.4 });
+    const g = new THREE.Group();
+    for (const sx of [-0.55, 0.55]) g.add(this.box(0.08, 1.1, 0.08, wood, sx, 0.55, 0));
+    for (const y of [0.25, 0.85]) g.add(this.box(1.2, 0.06, 0.08, wood, 0, y, 0));
+    for (let k = 0; k < 4; k++) {
+      const sx = -0.4 + k * 0.27;
+      g.add(this.box(0.04, 1.5, 0.04, this.color(0x7a5030), sx, 0.78, 0.06));
+      g.add(this.box(0.07, 0.16, 0.03, steel, sx, 1.58, 0.06));
+    }
+    for (const [sx, c] of [[-0.3, 0x2f5aa8], [0.3, 0xb02a2a]] as const) {
+      const shield = new THREE.Mesh(this.geo('shield', () => new THREE.CylinderGeometry(0.2, 0.2, 0.05, 10).rotateX(Math.PI / 2)), this.color(c));
+      shield.position.set(sx, 0.45, 0.12);
+      g.add(shield);
+    }
+    return this.add(g, x, z, this.y(x, z), rot);
+  }
+
+  /** Diana de tiro con arco sobre un caballete. */
+  archeryTarget(x: number, z: number, rot = 0) {
+    const wood = this.mat('planks', () => px.planks(this.seed));
+    const face = this.mat('target', () => {
+      const p = new px.Px(16, 16);
+      for (let y = 0; y < 16; y++)
+        for (let xx = 0; xx < 16; xx++) {
+          const d = Math.hypot(xx - 7.5, y - 7.5);
+          if (d < 8) p.set(xx, y, d < 2 ? 0xe8c040 : d < 4 ? 0xc83a2a : d < 6 ? 0xf4ecd8 : 0x3a5a9a);
+        }
+      return p;
+    });
+    const g = new THREE.Group();
+    for (const sx of [-0.3, 0.3]) {
+      const leg = this.box(0.07, 1.2, 0.07, wood, sx, 0.55, -0.1);
+      leg.rotation.x = 0.2;
+      g.add(leg);
+    }
+    const disc = new THREE.Mesh(this.geo('targetdisc', () => new THREE.CylinderGeometry(0.45, 0.45, 0.12, 14).rotateX(Math.PI / 2)), [this.mat('thatch', () => px.thatch(this.seed)), face, face]);
+    disc.position.y = 0.9;
+    disc.rotation.x = -0.15;
+    g.add(disc);
+    // Un par de flechas clavadas
+    for (const [ax, ay] of [[0.1, 0.95], [-0.15, 0.8]]) g.add(this.box(0.02, 0.02, 0.35, this.color(0x8a5a30), ax, ay, 0.2));
+    return this.add(g, x, z, this.y(x, z), rot);
+  }
+
+  /** Carro de dos ruedas cargado de heno. */
+  cart(x: number, z: number, rot = 0) {
+    const wood = this.mat('planks', () => px.planks(this.seed));
+    const g = new THREE.Group();
+    g.add(this.box(1.4, 0.1, 0.8, wood, 0, 0.45, 0));
+    for (const sz of [-0.4, 0.4]) g.add(this.box(1.4, 0.25, 0.06, wood, 0, 0.6, sz));
+    g.add(this.box(0.06, 0.25, 0.8, wood, -0.7, 0.6, 0));
+    for (const sz of [-0.46, 0.46]) {
+      const wheel = new THREE.Mesh(this.geo('wheel', () => new THREE.CylinderGeometry(0.34, 0.34, 0.08, 10).rotateX(Math.PI / 2)), this.color(0x5a3a20));
+      wheel.position.set(0.1, 0.34, sz);
+      g.add(wheel);
+    }
+    for (const sz of [-0.15, 0.15]) {
+      const shaft = this.box(1.2, 0.06, 0.06, wood, 1.2, 0.35, sz);
+      shaft.rotation.z = 0.25;
+      g.add(shaft);
+    }
+    const hay = new THREE.Mesh(this.geo('hay', () => new THREE.SphereGeometry(0.5, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2)), this.mat('thatch', () => px.thatch(this.seed), { flatShading: true }));
+    hay.scale.set(1.3, 0.9, 0.75);
+    hay.position.y = 0.5;
+    g.add(hay);
+    return this.add(g, x, z, this.y(x, z), rot);
+  }
+
+  /** Mesa de taberna con bancos y jarras. */
+  table(x: number, z: number, rot = 0) {
+    const wood = this.mat('planks-bridge', () => px.planks(this.seed + 5, [0x9a6a40, 0xa8784a, 0xb48454, 0x6a4428]));
+    const g = new THREE.Group();
+    g.add(this.box(1.2, 0.08, 0.55, wood, 0, 0.5, 0));
+    for (const sx of [-0.5, 0.5]) g.add(this.box(0.08, 0.5, 0.45, wood, sx, 0.25, 0));
+    for (const sz of [-0.5, 0.5]) {
+      g.add(this.box(1.2, 0.06, 0.22, wood, 0, 0.3, sz));
+      for (const sx of [-0.45, 0.45]) g.add(this.box(0.06, 0.3, 0.06, wood, sx, 0.15, sz));
+    }
+    for (const [mx, mz] of [[-0.3, 0.1], [0.05, -0.12], [0.35, 0.08]]) g.add(this.box(0.09, 0.12, 0.09, this.color(0xa89c84), mx, 0.6, mz));
+    return this.add(g, x, z, this.y(x, z), rot);
+  }
+
+  /** Yunque sobre su tocón. */
+  anvil(x: number, z: number) {
+    const iron = this.color(0x3a3a42, { metalness: 0.6, roughness: 0.4 });
+    const g = new THREE.Group();
+    const stump = new THREE.Mesh(this.geo('stump', () => new THREE.CylinderGeometry(0.22, 0.25, 0.4, 8)), this.mat('bark', () => px.bark(this.seed)));
+    stump.position.y = 0.2;
+    g.add(stump);
+    g.add(this.box(0.5, 0.14, 0.2, iron, 0, 0.47, 0));
+    g.add(this.box(0.22, 0.1, 0.16, iron, 0, 0.36, 0));
+    const horn = new THREE.Mesh(this.geo('horn', () => new THREE.ConeGeometry(0.07, 0.25, 6).rotateZ(-Math.PI / 2)), iron);
+    horn.position.set(0.36, 0.48, 0);
+    g.add(horn);
+    return this.add(g, x, z, this.y(x, z), this.rng.next() * 0.6);
+  }
+
+  /** Pila de leña. */
+  woodpile(x: number, z: number, rot = 0) {
+    const bark = this.mat('bark', () => px.bark(this.seed));
+    const g = new THREE.Group();
+    const geo = this.geo('log', () => new THREE.CylinderGeometry(0.05, 0.05, 0.5, 5));
+    for (let row = 0; row < 3; row++)
+      for (let k = 0; k < 4 - row; k++) {
+        const log = new THREE.Mesh(geo, bark);
+        log.scale.set(1.6, 1.6, 1.6);
+        log.rotation.x = Math.PI / 2;
+        log.position.set(-0.24 + k * 0.16 + row * 0.08, 0.08 + row * 0.14, 0);
+        g.add(log);
+      }
+    return this.add(g, x, z, this.y(x, z), rot);
+  }
+
+  /** Jardinera de piedra con flores. */
+  planter(x: number, z: number, w = 1.2) {
+    const stone = this.mat('bricks', () => px.bricks(this.seed));
+    const g = new THREE.Group();
+    g.add(this.box(w, 0.3, 0.45, stone, 0, 0.15, 0));
+    g.add(this.box(w - 0.1, 0.04, 0.35, this.color(0x4a3220), 0, 0.31, 0));
+    const tones = [0xf080a8, 0xf0d040, 0xf8f8f0, 0xd84a3a, 0xb05ac8];
+    for (let k = 0; k < Math.round(w * 6); k++) {
+      const fx = -w / 2 + 0.1 + this.rng.next() * (w - 0.2);
+      const fz = (this.rng.next() - 0.5) * 0.25;
+      g.add(this.box(0.03, 0.14, 0.03, this.color(0x3f7a2e), fx, 0.38, fz));
+      g.add(this.box(0.08, 0.07, 0.08, this.color(this.rng.pick(tones)), fx, 0.47, fz));
+    }
+    return this.add(g, x, z);
+  }
+
+  /** Sacos de grano apilados. */
+  sacks(x: number, z: number) {
+    const cloth = this.color(0xc8b48a, { flatShading: true });
+    const g = new THREE.Group();
+    const geo = this.geo('sackbag', () => new THREE.IcosahedronGeometry(0.2, 0));
+    for (const [sx, sy, sz] of [[-0.18, 0.14, 0], [0.18, 0.14, 0.05], [0, 0.38, 0.02]]) {
+      const b = new THREE.Mesh(geo, cloth);
+      b.scale.set(1, 0.75, 0.8);
+      b.position.set(sx, sy, sz);
+      g.add(b);
+    }
+    return this.add(g, x, z, this.y(x, z), this.rng.next());
+  }
+
+  /**
+   * Un vecino que va y viene entre dos puntos (o se queda quieto si no hay
+   * ruta), con paradas y un leve bamboleo al andar. `y` lo sube (adarve).
+   */
+  npc(kind: SpriteKind, x: number, z: number, opts: { to?: [number, number]; speed?: number; scale?: number; y?: number; left?: boolean } = {}) {
+    const s = new PixelSprite(spriteSheet(kind).texture(), opts.scale ?? 0.95, 1.4, opts.left ?? false);
+    const y0 = opts.y ?? this.y(x, z);
+    s.mesh.position.set(x, y0, z);
+    this.group.add(s.mesh);
+    const a = new THREE.Vector2(x, z);
+    const b = opts.to ? new THREE.Vector2(...opts.to) : null;
+    const speed = opts.speed ?? 0.6;
+    let k = this.rng.next();
+    let dir = 1;
+    let rest = this.rng.next() * 3;
+    this.updaters.push((dt, t, cam) => {
+      if (b) {
+        if (rest > 0) rest -= dt;
+        else {
+          k += (dir * speed * dt) / a.distanceTo(b);
+          if (k >= 1 || k <= 0) {
+            k = Math.min(1, Math.max(0, k));
+            dir = -dir;
+            rest = 1.5 + this.rng.next() * 3;
+          }
+          const p = new THREE.Vector2().lerpVectors(a, b, k);
+          s.mesh.position.set(p.x, y0 + Math.abs(Math.sin(t * 9)) * 0.05, p.y);
+          s.face((b.x - a.x) * dir < 0);
+        }
+      }
+      s.update(dt, cam);
+    });
+    return s;
+  }
+
+  /** Gallinas que picotean y dan saltitos por una zona. */
+  chickens(x: number, z: number, n: number) {
+    for (let k = 0; k < n; k++) {
+      const s = new PixelSprite(spriteSheet('chicken').texture(), 0.9, 3, this.rng.chance(0.5));
+      const home = new THREE.Vector2(x + (this.rng.next() - 0.5) * 1.5, z + (this.rng.next() - 0.5) * 1);
+      const pos = home.clone();
+      const goal = home.clone();
+      s.mesh.position.set(pos.x, this.y(x, z), pos.y);
+      this.group.add(s.mesh);
+      let wait = this.rng.next() * 2;
+      this.updaters.push((dt, t, cam) => {
+        wait -= dt;
+        if (wait <= 0) {
+          goal.set(home.x + (this.rng.next() - 0.5) * 1.6, home.y + (this.rng.next() - 0.5) * 1);
+          wait = 1 + this.rng.next() * 2.5;
+          s.face(goal.x < pos.x);
+        }
+        const d = goal.clone().sub(pos);
+        const moving = d.length() > 0.02;
+        if (moving) pos.add(d.clampLength(0, dt * 0.8));
+        s.mesh.position.set(pos.x, this.y(x, z) + (moving ? Math.abs(Math.sin(t * 14 + k)) * 0.06 : 0), pos.y);
+        s.update(dt, cam);
+      });
+    }
   }
 
   // ───────────────────────── ruinas y lugares sagrados ─────────────────────────

@@ -9,7 +9,7 @@ export const POSE_FRAME: Record<Exclude<Pose, 'idle'>, number> = { attack: 2, hu
 const OUTLINE = 0x1a1220;
 const SKIN = [0xf2c8a0, 0xd8a078];
 
-export type SpriteKind = 'hero' | 'spearman' | 'archer' | 'chaplain' | 'shade' | 'brute' | 'stalker' | 'herald';
+export type SpriteKind = 'hero' | 'spearman' | 'archer' | 'chaplain' | 'shade' | 'brute' | 'stalker' | 'herald' | 'villager' | 'smith' | 'chicken';
 
 /** Tamaño de cada cuadro en píxeles; los pies quedan siempre en la última fila. */
 export const SPRITE_SIZE: Record<SpriteKind, [number, number]> = {
@@ -21,6 +21,9 @@ export const SPRITE_SIZE: Record<SpriteKind, [number, number]> = {
   brute: [48, 48],
   stalker: [44, 34],
   herald: [44, 58],
+  villager: [32, 40],
+  smith: [32, 40],
+  chicken: [14, 12],
 };
 
 /** Tres tonos por material: luz, base y sombra (la luz viene de arriba a la izquierda). */
@@ -391,6 +394,58 @@ function drawHerald(p: Px, dy: number, atk = false) {
   }
 }
 
+// ───────────────────────── gente del castillo ─────────────────────────
+
+function drawVillager(p: Px, dy: number) {
+  legs(p, C.pants, C.boots);
+  // Saya parda con delantal
+  shaded(p, 11, 21 + dy, 10, 12, [0xb08a5a, 0x8a6a40, 0x5e4628]);
+  p.rect(13, 25 + dy, 6, 8, 0xe8e0c8);
+  p.rect(13, 25 + dy, 6, 1, 0xd0c4a4);
+  face(p, dy);
+  // Sombrero de paja de ala ancha
+  shaded(p, 12, 8 + dy, 10, 4, C.gold);
+  p.rect(9, 12 + dy, 16, 1, C.gold[1]);
+  p.rect(10, 12 + dy, 14, 1, C.gold[0]);
+  p.rect(12, 11 + dy, 10, 1, C.red[1]);
+  // Cesta con manzanas
+  shaded(p, 19, 22 + dy, 3, 5, [0xb08a5a, 0x8a6a40, 0x5e4628]);
+  p.rect(21, 26 + dy, 2, 2, SKIN[0]);
+  shaded(p, 20, 28 + dy, 7, 4, C.wood);
+  p.rect(21, 27 + dy, 2, 1, C.red[0]);
+  p.rect(24, 27 + dy, 2, 1, C.green[0]);
+}
+
+function drawSmith(p: Px, dy: number) {
+  legs(p, C.pants, C.boots);
+  // Camisa remangada y mandil de cuero
+  shaded(p, 11, 21 + dy, 10, 11, [0xe8dcc0, 0xc8b898, 0x8a7a5a]);
+  shaded(p, 12, 23 + dy, 8, 10, C.leather);
+  face(p, dy);
+  // Pelo corto y barba
+  shaded(p, 12, 8 + dy, 10, 4, [0x5a3a2a, 0x3e2618, 0x2a1810]);
+  p.rect(12, 12 + dy, 2, 4, 0x3e2618);
+  p.rect(16, 18 + dy, 6, 3, 0x3e2618);
+  // Martillo al hombro
+  shaded(p, 19, 22 + dy, 3, 5, SKIN);
+  p.rect(21, 14 + dy, 1, 12, C.wood[1]);
+  shaded(p, 19, 12 + dy, 5, 3, C.steel);
+}
+
+function drawChicken(p: Px, dy: number) {
+  blob(p, 6, 7 + dy, 5, 3, C.white);
+  blob(p, 10, 4 + dy, 2, 2, C.white);
+  p.rect(9, 1 + dy, 2, 1, C.red[1]);
+  p.set(10, 2 + dy, C.red[1]);
+  p.set(13, 4 + dy, C.gold[1]);
+  p.set(10, 4 + dy, 0x1a1220);
+  p.rect(1, 4 + dy, 2, 2, C.white[2]);
+  p.set(5, 11, C.gold[1]);
+  p.set(8, 11, C.gold[1]);
+  p.set(5, 10, C.gold[2]);
+  p.set(8, 10, C.gold[2]);
+}
+
 const DRAW: Record<SpriteKind, (p: Px, dy: number, atk: boolean) => void> = {
   hero: drawHero,
   spearman: drawSpearman,
@@ -400,6 +455,9 @@ const DRAW: Record<SpriteKind, (p: Px, dy: number, atk: boolean) => void> = {
   brute: drawBrute,
   stalker: drawStalker,
   herald: drawHerald,
+  villager: drawVillager,
+  smith: drawSmith,
+  chicken: drawChicken,
 };
 
 /**
