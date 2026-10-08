@@ -1,5 +1,6 @@
 import '../combat/combat.css';
 import './campaign.css';
+import '../ui/theme.css';
 import { audio } from '../audio/Audio';
 import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from '../combat/rules/Combat';
@@ -12,6 +13,7 @@ import type { ActionResult, BuildingId, CampaignState, LogLine, Soldier } from '
 import { MapView } from './view/MapView';
 import { Hd2dCombatView } from '../hd2d/battle';
 import type { Mode } from '../hd2d/look';
+import { portrait } from '../hd2d/portrait';
 import { Stage3D } from '../hd2d/stage';
 
 // `?partida=nombre` usa otra ranura de guardado (para probar sin tocar la partida principal).
@@ -147,7 +149,7 @@ function soldierCard(s: Soldier, extra = '') {
   ].join('');
   return `
     <div class="cp-soldier k-${s.kind}">
-      <div class="cp-soldier-head"><b>${s.name}</b><span>${KIND_NAMES[s.kind]} · nivel ${c.level(s)}</span></div>
+      <div class="cp-soldier-head"><img class="cp-portrait" src="${portrait(s.kind)}" alt=""><div><b>${s.name}</b><span>${KIND_NAMES[s.kind]} · nivel ${c.level(s)}</span></div></div>
       <div class="cp-soldier-bars">
         <div><span>Vida</span>${bar(s.hp, max, 'hp')}<small>${s.hp}/${max}</small></div>
         <div><span>Estrés</span>${bar(s.stress, 100, 'stress')}<small>${s.stress}</small></div>
@@ -448,7 +450,7 @@ function showPrep(selected?: string[]) {
           home.filter((s) => !party.includes(s.id)).length
             ? `<h3>En el castillo</h3><div class="cp-bench">${home
                 .filter((s) => !party.includes(s.id))
-                .map((s) => `<button class="cp-bench-card" data-add="${s.id}" ${party.length >= CBAL.partyMax ? 'disabled' : ''}>${s.name}<small>${KIND_NAMES[s.kind]} · estrés ${s.stress}${s.affliction ? ' · afligido' : ''}</small></button>`)
+                .map((s) => `<button class="cp-bench-card" data-add="${s.id}" ${party.length >= CBAL.partyMax ? 'disabled' : ''}><img class="cp-portrait" src="${portrait(s.kind)}" alt="">${s.name}<small>${KIND_NAMES[s.kind]} · estrés ${s.stress}${s.affliction ? ' · afligido' : ''}</small></button>`)
                 .join('')}</div>`
             : ''
         }
@@ -613,7 +615,7 @@ function chooseGuard() {
   const m = modal(
     `<h2>¿Quién queda de guardia?</h2>
     <p class="lead">Asegura el nodo: se cruza rápido y sin emboscadas. De noche, la guardia puede ser atacada.</p>
-    <div class="cp-bench">${options.map((s) => `<button class="cp-bench-card" data-g="${s.id}">${s.name}<small>${KIND_NAMES[s.kind]} · vida ${s.hp}/${c.maxHp(s)} · estrés ${s.stress}</small></button>`).join('')}</div>
+    <div class="cp-bench">${options.map((s) => `<button class="cp-bench-card" data-g="${s.id}"><img class="cp-portrait" src="${portrait(s.kind)}" alt="">${s.name}<small>${KIND_NAMES[s.kind]} · vida ${s.hp}/${c.maxHp(s)} · estrés ${s.stress}</small></button>`).join('')}</div>
     <div class="cp-buttons"><button data-act="close">Cancelar</button></div>`,
     'narrow',
   );

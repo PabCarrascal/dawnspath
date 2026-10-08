@@ -1,4 +1,5 @@
 import './hd2d.css';
+import '../ui/theme.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { audio } from '../audio/Audio';

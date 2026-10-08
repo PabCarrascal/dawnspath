@@ -1,4 +1,5 @@
 import './combat.css';
+import '../ui/theme.css';
 import { audio } from '../audio/Audio';
 import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from './rules/Combat';

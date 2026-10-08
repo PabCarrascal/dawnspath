@@ -1,3 +1,4 @@
+import { portrait } from '../hd2d/portrait';
 import type { Combat } from './rules/Combat';
 import type { Fighter, Skill } from './rules/types';
 
@@ -78,7 +79,8 @@ export class CombatUi {
       if (!f?.alive) continue;
       const li = document.createElement('li');
       li.className = `side-${f.side} ${id === active ? 'active' : ''}`;
-      li.textContent = f.name;
+      li.title = f.name;
+      li.innerHTML = `<img src="${portrait(f.kind, f.side === 'foe')}" alt=""><span>${f.name}</span>`;
       ol.appendChild(li);
     }
   }
@@ -90,8 +92,10 @@ export class CombatUi {
     const door = f.deathsDoor ? '<em class="door">A las puertas de la muerte</em>' : '';
     const stress = f.side === 'party' ? `<div class="cb-row"><span>Estrés</span><b>${f.stress}</b><i class="bar stress"><i style="width:${Math.min(100, f.stress)}%"></i></i></div>` : '';
     return `
-      <div class="cb-name">${f.name}</div>
-      <div class="cb-tags">${affl}${door}</div>
+      <div class="cb-card-head">
+        <img class="cb-portrait ${f.side}" src="${portrait(f.kind, f.side === 'foe')}" alt="">
+        <div><div class="cb-name">${f.name}</div><div class="cb-tags">${affl}${door}</div></div>
+      </div>
       <div class="cb-row"><span>Vida</span><b>${f.hp}/${f.maxHp}</b><i class="bar hp"><i style="width:${(f.hp / f.maxHp) * 100}%"></i></i></div>
       ${stress}
       <div class="cb-stats">

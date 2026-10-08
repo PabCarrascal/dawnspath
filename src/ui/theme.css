@@ -1,0 +1,634 @@
+/*
+ * Tema HD-2D (al estilo de Octopath): paneles azul marino translúcidos con
+ * filo dorado y adornos en las esquinas, títulos en Cinzel y texto en EB
+ * Garamond. Se carga después de combat.css y campaign.css y los redefine.
+ */
+
+:root {
+  --ink: #0a0e22;
+  --bone: #f3eedf;
+  --bone-dim: rgba(243, 238, 223, 0.68);
+  --gold: #d4b25e;
+  --gold-bright: #f6dc8c;
+  --gold-deep: #9a7a34;
+  --blood: #c83a3a;
+  --blood-bright: #ff7a6a;
+  --ally: #7ae09a;
+  --violet: #b890ff;
+  --panel: rgba(16, 24, 54, 0.9);
+  --panel-edge: rgba(212, 178, 94, 0.75);
+  --serif: 'EB Garamond', Georgia, serif;
+  --caps: 'Cinzel', 'Times New Roman', serif;
+
+  /* Panel: degradado marino, filo interior y sombra. */
+  --oct-bg: linear-gradient(180deg, rgba(36, 52, 104, 0.94) 0%, rgba(14, 20, 48, 0.95) 100%);
+  --oct-frame:
+    inset 0 0 0 1px rgba(8, 12, 30, 0.95),
+    inset 0 0 0 2px rgba(246, 220, 140, 0.16),
+    0 8px 22px rgba(0, 0, 0, 0.45);
+  /* Remaches dorados en las cuatro esquinas, superpuestos al degradado. */
+  --oct-corners:
+    radial-gradient(circle at 5px 5px, var(--gold-bright) 1.6px, transparent 2.6px),
+    radial-gradient(circle at calc(100% - 5px) 5px, var(--gold-bright) 1.6px, transparent 2.6px),
+    radial-gradient(circle at 5px calc(100% - 5px), var(--gold-bright) 1.6px, transparent 2.6px),
+    radial-gradient(circle at calc(100% - 5px) calc(100% - 5px), var(--gold-bright) 1.6px, transparent 2.6px);
+  --oct-btn: linear-gradient(180deg, rgba(48, 66, 124, 0.96), rgba(20, 28, 62, 0.96));
+  --oct-gold: linear-gradient(180deg, #fbe7a6 0%, #e2bf68 45%, #b88e3c 100%);
+}
+
+html,
+body {
+  background: #0a0e1c;
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+/* ───────────────────────── paneles ───────────────────────── */
+
+.cp-hud > div,
+.cb-round,
+.cb-card,
+.cp-soldier,
+.cp-modal-box,
+.cp-map-tip,
+.snd-panel,
+.cb-skill-info,
+.hd-group,
+.hd-biomes,
+.hd-title {
+  background: var(--oct-corners), var(--oct-bg) !important;
+  border: 1px solid var(--panel-edge) !important;
+  border-radius: 6px;
+  box-shadow: var(--oct-frame);
+}
+.cb-skill-info {
+  padding: 6px 14px;
+}
+.cp-modal-box {
+  border-radius: 8px;
+  background: var(--oct-corners), linear-gradient(180deg, rgba(30, 44, 90, 0.97), rgba(12, 17, 40, 0.98)) !important;
+}
+.cp-modal {
+  background: rgba(4, 6, 16, 0.55);
+  backdrop-filter: blur(2px);
+}
+
+/* Títulos */
+.cp-modal h2,
+.cb-name,
+.cp-soldier-head b,
+.cp-where,
+.cp-hotspot b,
+.cp-map-tip h4,
+.cb-desc b,
+.cp-choices button b,
+.cp-bench-card,
+.cb-enc,
+.cb-enc-card b {
+  font-family: var(--caps) !important;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--gold-bright);
+}
+.cp-modal h2 {
+  font-size: 26px;
+  text-shadow: 0 2px 0 var(--ink);
+}
+.cp-modal h3,
+.cp-title h3 {
+  font-family: var(--caps);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 1px solid rgba(212, 178, 94, 0.35);
+  padding-bottom: 4px;
+}
+.cp-modal .lead,
+.cb-menu .lead,
+.cp-title .lead {
+  font-family: var(--serif);
+  font-style: italic;
+  color: var(--bone-dim);
+}
+
+/* ───────────────────────── botones ───────────────────────── */
+
+.cp-buttons button,
+.cp-actions button,
+.cp-row button,
+.cp-order button,
+.cp-stepper button,
+.cp-choices button,
+.cb-buttons button,
+.cb-enc-card,
+.cp-bench-card,
+.cp-hotspot {
+  background: var(--oct-btn) !important;
+  border: 1px solid var(--panel-edge) !important;
+  border-radius: 4px;
+  color: var(--bone);
+  font-family: var(--serif);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 3px 10px rgba(0, 0, 0, 0.35);
+}
+.cp-buttons button:hover:not(:disabled),
+.cp-actions button:hover:not(:disabled),
+.cp-row button:hover:not(:disabled),
+.cp-order button:hover:not(:disabled),
+.cp-stepper button:hover:not(:disabled),
+.cp-choices button:hover:not(:disabled),
+.cb-buttons button:hover,
+.cb-enc-card:hover,
+.cp-bench-card:hover:not(:disabled) {
+  border-color: var(--gold-bright) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 14px rgba(246, 220, 140, 0.35);
+}
+/* Botón principal: barra dorada, como la opción elegida de un menú */
+button.primary,
+.cp-buttons button.primary,
+.cp-actions button.primary,
+.cb-buttons button.primary {
+  background: var(--oct-gold) !important;
+  border-color: #fff0c0 !important;
+  color: #1a1430 !important;
+  font-weight: 600;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+button.night,
+.cp-actions button.night {
+  background: linear-gradient(180deg, rgba(60, 54, 130, 0.96), rgba(26, 22, 70, 0.96)) !important;
+  border-color: #9a8ae0 !important;
+  color: #e4dcff !important;
+}
+
+/* ───────────────────────── barras y fichas ───────────────────────── */
+
+.bar {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(4, 6, 16, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 0 1px rgba(212, 178, 94, 0.25);
+  overflow: hidden;
+}
+.bar.hp > i {
+  background: linear-gradient(180deg, #a6f2b4, #3faa62);
+}
+.bar.stress > i {
+  background: linear-gradient(180deg, #d8c4ff, #7a4ad8);
+}
+
+.cp-portrait,
+.cb-portrait {
+  image-rendering: pixelated;
+  border-radius: 4px;
+  border: 1px solid var(--panel-edge);
+  background: radial-gradient(circle at 50% 35%, rgba(90, 120, 200, 0.55), rgba(12, 18, 44, 0.95));
+  flex: none;
+}
+.cp-portrait {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  object-position: top;
+}
+.cb-portrait {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  object-position: top;
+}
+.cb-portrait.foe {
+  background: radial-gradient(circle at 50% 35%, rgba(200, 70, 70, 0.5), rgba(30, 10, 20, 0.95));
+}
+.cp-soldier-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.cp-soldier-head > div {
+  min-width: 0;
+}
+.cb-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.cb-name {
+  font-size: 19px;
+}
+.cb-stats b {
+  color: var(--bone);
+}
+.cb-forecast b {
+  color: var(--gold-bright);
+}
+.cp-bench-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  border-style: solid !important;
+}
+.cp-bench-card .cp-portrait {
+  grid-row: span 2;
+  width: 34px;
+  height: 34px;
+}
+.cp-tags em,
+em.affl,
+.cb-tags em {
+  border-radius: 3px;
+}
+.cp-tags .affl,
+em.affl,
+.cb-tags .affl {
+  color: #d8c4ff;
+  border-color: #7a4ad8;
+  background: rgba(122, 74, 216, 0.18);
+}
+
+/* ───────────────────────── barra superior ───────────────────────── */
+
+.cp-day b,
+.cb-round b {
+  font-family: var(--caps);
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+.cp-day span,
+.cp-hours span,
+.cb-round span,
+.cp-dark span {
+  font-family: var(--caps);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+.cp-res {
+  font-family: var(--serif);
+  font-weight: 500;
+}
+.cp-hours > i {
+  border-radius: 5px;
+  overflow: hidden;
+  border-color: rgba(0, 0, 0, 0.8);
+}
+.cp-where small {
+  font-family: var(--serif);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.cp-dark {
+  border-color: rgba(184, 144, 255, 0.7) !important;
+}
+.cp-dark b {
+  font-family: var(--caps);
+  color: var(--violet);
+}
+
+/* Orden de turnos: retratos en fila, como en Octopath */
+.cb-order {
+  gap: 4px;
+  align-items: flex-end;
+}
+.cb-order li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px;
+  border-radius: 6px;
+  border: 1px solid rgba(122, 160, 255, 0.7) !important;
+  background: var(--oct-bg) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+}
+.cb-order li img {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  object-position: top;
+  image-rendering: pixelated;
+  border-radius: 4px;
+  display: block;
+}
+.cb-order li span {
+  display: none;
+}
+.cb-order li.side-foe {
+  border-color: rgba(255, 110, 100, 0.75) !important;
+  background: linear-gradient(180deg, rgba(90, 30, 40, 0.94), rgba(36, 12, 22, 0.95)) !important;
+}
+.cb-order li.active {
+  border-color: var(--gold-bright) !important;
+  box-shadow:
+    0 0 0 1px var(--gold-bright),
+    0 0 16px rgba(246, 220, 140, 0.55);
+  padding-right: 10px;
+}
+.cb-order li.active img {
+  width: 44px;
+  height: 44px;
+}
+.cb-order li.active span {
+  display: inline;
+  font-family: var(--caps);
+  font-size: 13px;
+  color: var(--gold-bright);
+}
+
+/* ───────────────────────── combate ───────────────────────── */
+
+.cb-panel {
+  background: linear-gradient(180deg, rgba(6, 10, 26, 0) 0%, rgba(6, 10, 26, 0.88) 32%) !important;
+}
+.cb-skill {
+  border-radius: 6px !important;
+  border: 1px solid var(--panel-edge) !important;
+  background: var(--oct-btn) !important;
+  color: var(--bone) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 10px rgba(0, 0, 0, 0.4);
+}
+.cb-skill .glyph {
+  color: var(--gold-bright) !important;
+  text-shadow: 0 0 8px rgba(246, 220, 140, 0.45);
+}
+.cb-skill .nm {
+  font-family: var(--serif);
+  font-weight: 500;
+}
+.cb-skill:hover:not(:disabled) {
+  border-color: var(--gold-bright) !important;
+}
+.cb-skill.selected {
+  background: var(--oct-gold) !important;
+  border-color: #fff0c0 !important;
+  color: #1a1430 !important;
+  box-shadow: 0 0 18px rgba(246, 220, 140, 0.55) !important;
+}
+.cb-skill.selected .glyph {
+  color: #3a2a10 !important;
+  text-shadow: none;
+}
+.cb-skill.selected kbd {
+  color: #3a2a10;
+}
+.cb-ranks i {
+  border-color: rgba(243, 238, 223, 0.5);
+}
+.cb-ranks .own i.on {
+  background: var(--gold-bright);
+  border-color: var(--gold-bright);
+}
+.cb-ranks .tgt i.foe {
+  background: #ff6a5a;
+  border-color: #ff6a5a;
+}
+
+/* Nombre de la habilidad: banda horizontal con filetes dorados */
+.cb-banner {
+  top: 17%;
+  width: min(760px, 92vw);
+}
+.cb-banner h2,
+.cb-banner p {
+  position: relative;
+}
+.cb-banner h2 {
+  padding: 8px 40px;
+  font-family: var(--caps) !important;
+  font-weight: 600 !important;
+  font-size: clamp(24px, 3.2vw, 38px) !important;
+  letter-spacing: 0.1em !important;
+  background: linear-gradient(90deg, transparent, rgba(14, 22, 52, 0.9) 18%, rgba(14, 22, 52, 0.9) 82%, transparent);
+  text-shadow: 0 2px 0 var(--ink), 0 0 16px rgba(0, 0, 0, 0.7) !important;
+}
+.cb-banner h2::before,
+.cb-banner h2::after {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+}
+.cb-banner h2::before {
+  top: 0;
+}
+.cb-banner h2::after {
+  bottom: 0;
+}
+.cb-banner p {
+  font-family: var(--serif);
+  font-size: 17px;
+}
+.cb-banner.bad h2 {
+  color: #ffb4a8 !important;
+}
+
+.cb-narrator {
+  font-family: var(--serif);
+  font-size: 21px;
+  letter-spacing: 0.01em;
+}
+
+/* Bocadillos: ventana de diálogo marina */
+.cb-bubble {
+  background: var(--oct-bg) !important;
+  color: var(--bone) !important;
+  border: 1px solid var(--gold) !important;
+  border-radius: 6px;
+  font-family: var(--serif);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+}
+.cb-bubble::after {
+  border-top-color: var(--gold) !important;
+}
+
+.cb-log li {
+  background: rgba(10, 16, 40, 0.72) !important;
+  border-left-color: rgba(122, 160, 255, 0.6) !important;
+  border-radius: 0 4px 4px 0;
+  font-family: var(--serif);
+}
+.cb-log .tone-good {
+  border-left-color: var(--gold) !important;
+}
+.cb-log .tone-bad {
+  border-left-color: var(--blood-bright) !important;
+}
+
+/* ───────────────────────── campaña ───────────────────────── */
+
+.cp-panel {
+  background: linear-gradient(180deg, rgba(6, 10, 26, 0) 0%, rgba(6, 10, 26, 0.86) 30%) !important;
+}
+.cp-soldier {
+  padding: 8px 10px;
+}
+.cp-hotspot {
+  border-radius: 6px;
+  padding: 6px 16px;
+}
+.cp-hotspot::after {
+  border-top-color: var(--gold) !important;
+}
+.cp-toast {
+  background: var(--oct-bg) !important;
+  border: 1px solid var(--panel-edge) !important;
+  border-radius: 20px;
+  padding: 7px 20px;
+  font-family: var(--serif);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+}
+.cp-levels li.cur {
+  color: var(--gold-bright);
+}
+.cp-row {
+  border-bottom-color: rgba(212, 178, 94, 0.22);
+}
+.cp-party li::before {
+  font-family: var(--caps);
+  border-radius: 4px;
+  border-color: var(--panel-edge);
+  background: var(--oct-bg);
+}
+.cp-map-frame {
+  border: 2px solid var(--gold) !important;
+  border-radius: 4px;
+  box-shadow:
+    0 0 0 4px rgba(14, 20, 48, 0.95),
+    0 0 0 5px rgba(212, 178, 94, 0.5);
+}
+.cp-event-text {
+  font-family: var(--serif);
+}
+.cp-choices button small {
+  font-family: var(--serif);
+}
+.tone-good {
+  color: #a8f0b8;
+}
+.tone-bad {
+  color: #ffb0a4;
+}
+
+/* ───────────────────────── portada y finales ───────────────────────── */
+
+.cp-title,
+.cb-menu {
+  background: radial-gradient(closest-side, rgba(8, 12, 30, 0.82), rgba(8, 12, 30, 0.55) 62%, rgba(8, 12, 30, 0)) !important;
+}
+.cp-title .kicker,
+.cb-menu .kicker {
+  font-family: var(--caps);
+  font-size: 13px;
+  letter-spacing: 0.32em;
+  color: var(--gold);
+}
+.cp-title h1,
+.cb-menu h1 {
+  font-family: var(--caps) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+  background: linear-gradient(180deg, #fff6d6 0%, #f0d48a 45%, #b88a34 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent !important;
+  filter: drop-shadow(0 3px 0 rgba(10, 14, 34, 0.9)) drop-shadow(0 0 18px rgba(0, 0, 0, 0.6));
+  text-shadow: none !important;
+}
+.cp-title.end.lost h1,
+.cb-screen.end.lost h1 {
+  background: linear-gradient(180deg, #e8e4f4 0%, #a8a0c8 50%, #5a5078 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+/* Menú de portada: opciones en columna */
+.cp-title .cp-buttons {
+  flex-direction: column;
+  align-items: center;
+}
+.cp-title .cp-buttons button {
+  min-width: 260px;
+  font-family: var(--caps);
+  font-size: 16px;
+  letter-spacing: 0.06em;
+}
+.cb-screen {
+  background: radial-gradient(ellipse at center, rgba(24, 36, 80, 0.5), rgba(4, 6, 16, 0.94)), #0a0e1c !important;
+}
+.cb-screen.end {
+  background: rgba(4, 6, 16, 0.78) !important;
+}
+.cb-enc-card {
+  border-radius: 6px;
+}
+.cb-roster li {
+  border-bottom-color: rgba(212, 178, 94, 0.3);
+}
+
+/* Control de sonido */
+.snd-toggle {
+  background: var(--oct-bg) !important;
+  border: 1px solid var(--panel-edge) !important;
+  border-radius: 6px;
+}
+
+/* En la lista del grupo, las fichas ocupan todo el ancho */
+.cp-party .cp-soldier {
+  max-width: none;
+}
+
+/* Ficha del combate: nombres largos en dos líneas como mucho */
+.cb-name {
+  font-size: 16px !important;
+  line-height: 1.15;
+}
+.cb-stats {
+  font-size: 12.5px;
+}
+
+/* Fichas bajo los pies en la maqueta: vida verde (roja en los enemigos) y estrés violeta */
+.hd-plate .hd-hp {
+  border-radius: 4px;
+  overflow: hidden;
+  border-color: #05070f;
+  box-shadow: 0 0 0 1px rgba(212, 178, 94, 0.45);
+}
+.hd-plate.party .hd-hp > i {
+  background: linear-gradient(180deg, #a6f2b4, #3faa62);
+}
+.hd-plate.foe .hd-hp > i {
+  background: linear-gradient(180deg, #ff9a8a, #c83a3a);
+}
+.hd-plate .hd-pips i {
+  border-radius: 1px;
+  background: rgba(10, 14, 34, 0.9) !important;
+}
+.hd-plate .hd-pips i.on {
+  background: #c8b0ff !important;
+}
+.hd-plate .hd-pips i.over {
+  background: #ff5a6a !important;
+}
+.hd-float {
+  font-family: 'Cinzel', serif !important;
+}
+
+/* Sin habilidad que describir (turno enemigo), no se muestra el recuadro */
+.cb-skill-info:empty {
+  display: none;
+}
+
+.cp-modal .cp-map-side h2 {
+  font-size: 20px;
+}
