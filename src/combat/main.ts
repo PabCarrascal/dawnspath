@@ -54,6 +54,7 @@ async function run(id: string, seed: number) {
   const unlock = () => {
     audio.unlock();
     audio.setNight(time === 'night' ? 1 : time === 'dusk' ? 0.7 : 0.45);
+    audio.music(combat.state.fighters.some((f) => f.kind === 'herald') ? 'boss' : 'battle');
   };
   window.addEventListener('pointerdown', unlock, { once: true });
   window.addEventListener('keydown', unlock, { once: true });

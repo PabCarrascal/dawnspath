@@ -1,7 +1,7 @@
 import '../combat/combat.css';
 import './campaign.css';
 import '../ui/theme.css';
-import { audio } from '../audio/Audio';
+import { audio, Track } from '../audio/Audio';
 import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from '../combat/rules/Combat';
 import { startCombat } from '../combat/session';
@@ -167,6 +167,11 @@ function setNight(mode: Mode) {
   audio.setNight(mode === 'night' || mode === 'dark' ? 1 : mode === 'dusk' ? 0.7 : 0.45);
 }
 
+/** Música del sendero: el camino de día, de noche o la oscuridad (también en la torre del Heraldo). */
+function roadMusic(mode: Mode, node: string): Track {
+  return mode === 'dark' || NODE[node].biome === 'lair' ? 'dark' : mode === 'night' ? 'night' : 'road';
+}
+
 /** Hora de la escena: en un nodo oscuro reina la oscuridad. */
 const timeOfDay = (): Mode => {
   const e = campaign.state.exp;
@@ -198,6 +203,7 @@ function showTitle() {
   const preview = new Campaign(saved?.seed ?? 1, saved ?? undefined);
   campaign = preview;
   castleScene('dusk');
+  audio.music('castle');
   ui.innerHTML = `
     <div class="cp-title">
       <p class="kicker">Dawn's Path · fase 2</p>
@@ -267,6 +273,7 @@ function showCastle() {
   const c = campaign;
   closeModal();
   setNight('dusk');
+  audio.music('castle');
   const s = castleScene('dusk');
 
   ui.innerHTML = `
@@ -546,6 +553,7 @@ function showNode(mode: Mode = timeOfDay()) {
   const n = c.node(e.node);
   closeModal();
   setNight(mode);
+  audio.music(roadMusic(mode, e.node));
   nodeScene(mode);
   const tod = mode;
 
@@ -739,6 +747,7 @@ async function fight() {
   const tod: Mode = c.node(p.node).dark ? 'dark' : p.night ? 'night' : timeOfDay();
   setNight(tod);
   const combat = new Combat(c.encounter(), p.seed);
+  audio.music(combat.state.fighters.some((f) => f.kind === 'herald') ? 'boss' : 'battle');
   await fade(() => {
     setScene(null);
     ui.innerHTML = '';
@@ -780,7 +789,8 @@ function showEnd() {
   closeModal();
   setNight(won ? 'day' : 'night');
   castleScene(won ? 'day' : 'dark');
-  audio.play(won ? 'victory' : 'defeat');
+  audio.music(won ? 'castle' : 'dark');
+  void audio.jingle(won ? 'victory' : 'defeat');
   const fallen = s.soldiers.filter((x) => !x.alive);
   ui.innerHTML = `
     <div class="cp-title end ${won ? 'won' : 'lost'}">

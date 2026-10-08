@@ -4,7 +4,7 @@ Gestión de un castillo y expediciones cortas con combate por turnos, en 2D y co
 
 **Ganas** si vences al Heraldo. **Pierdes** si cae el héroe sin nadie que lo saque del combate, o si la oscuridad engulle el castillo.
 
-Está en fase temprana. El estilo visual es HD-2D (como Octopath Traveler): personajes en pixel art dentro de maquetas en 3D, todo generado por código, sin assets importados. Diseño completo en el [documento de diseño](https://claude.ai/code/artifact/8ca35d88-c574-4c82-b382-6e8fb4c8d4cd).
+Está en fase temprana. El estilo visual es HD-2D (como Octopath Traveler): personajes en pixel art dentro de maquetas en 3D, todo generado por código, sin assets importados. La música está generada con IA (MusicGen) y los efectos de sonido se sintetizan en código. Diseño completo en el [documento de diseño](https://claude.ai/code/artifact/8ca35d88-c574-4c82-b382-6e8fb4c8d4cd).
 
 ## El juego
 
@@ -47,7 +47,7 @@ npm run sim:combat   # la IA juega ambos bandos de cada encuentro de prueba
 ```
 src/
   core/       PRNG con semilla y animaciones con promesas
-  audio/      música generativa y efectos sintetizados con WebAudio
+  audio/      reproducción de la banda sonora (public/music) y efectos sintetizados con WebAudio
   combat/     rules/ motor del combate, session.ts bucle jugable, view/ escena 2D antigua (PixiJS)
   campaign/   rules/ campaña, sucesos y bot; view/ mapa; main.ts pantallas
   hd2d/       maquetas HD-2D en Three.js: pixel art en código (pixel, characters),
@@ -67,6 +67,31 @@ src/
 ## Arte
 
 Cómo conectar Blender MCP y producir fondos y sprites a partir de assets de Poly Haven: [`docs/blender.md`](docs/blender.md).
+
+## Música
+
+Las pistas de [`public/music`](public/music) están generadas en local con [MusicGen](https://huggingface.co/facebook/musicgen-medium), el modelo abierto de Meta, por [`tools/music/generate.py`](tools/music/generate.py). El juego cambia de pista con un fundido según la pantalla:
+
+| Pista | Dónde suena |
+| --- | --- |
+| `castle` | Título y castillo |
+| `road` / `night` | Sendero de día / de noche |
+| `dark` | Nodos oscuros y torre del Heraldo |
+| `battle` / `boss` | Combate / combate contra el Heraldo |
+| `victory` / `defeat` | Fanfarrias al acabar un combate o la campaña |
+
+Para regenerarlas (unos 2-3 min por pista en un Mac con Apple Silicon; la primera vez descarga unos 8 GB: 7,5 GB del modelo y el resto de PyTorch):
+
+```bash
+uv venv -p 3.11 .musicenv
+VIRTUAL_ENV=.musicenv uv pip install torch transformers scipy numpy
+.musicenv/bin/python tools/music/generate.py            # todas
+.musicenv/bin/python tools/music/generate.py battle     # solo una
+```
+
+Las descripciones y semillas de cada pista están al principio del script. Si una pista sale con un hueco de silencio, el script la repite con otra semilla.
+
+Los pesos de MusicGen tienen licencia CC-BY-NC 4.0 (uso no comercial). Para publicar el juego con fines comerciales habría que regenerar la música con un modelo de licencia abierta (por ejemplo, ACE-Step, Apache 2.0) o sustituirla.
 
 ## Versiones anteriores
 

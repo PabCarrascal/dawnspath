@@ -180,7 +180,8 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
   window.addEventListener('keydown', onKey);
 
   const finish = (r: CombatOutcome) => {
-    audio.play(r === 'won' ? 'victory' : r === 'lost' ? 'defeat' : 'bad');
+    if (r === 'fled') audio.play('bad');
+    else void audio.jingle(r === 'won' ? 'victory' : 'defeat');
     ui.narrate(pick(NARRATOR[r]));
     setTimeout(() => resolve(r), 1600);
   };

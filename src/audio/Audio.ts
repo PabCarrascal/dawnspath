@@ -1,6 +1,7 @@
 /**
- * Audio 100% procedural con WebAudio: música ambiental generativa que
- * cambia entre el día y la noche, y efectos sintetizados. Sin archivos.
+ * Audio con WebAudio: la banda sonora (pistas generadas con MusicGen, en
+ * public/music, ver tools/music) con fundidos entre pantallas, un viento de
+ * fondo que crece de noche y efectos sintetizados en código.
  */
 
 export type Sfx =
@@ -29,36 +30,35 @@ export type Sfx =
 
 const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
 
-// Progresiones en Re: luminosa de día, menor y grave de noche.
-const DAY_CHORDS = [
-  [62, 66, 69, 73], // Dmaj7
-  [59, 62, 66, 69], // Bm7
-  [55, 59, 62, 66], // Gmaj7
-  [57, 61, 64, 67], // A7sus
-];
-const NIGHT_CHORDS = [
-  [50, 57, 62, 65], // Dm
-  [46, 53, 58, 62], // Bb
-  [48, 55, 60, 63], // Cm
-  [45, 52, 57, 61], // A
-];
-const DAY_SCALE = [62, 64, 66, 69, 71, 74, 76, 78, 81];
-const NIGHT_SCALE = [62, 65, 67, 69, 72, 74, 77];
+/** Pistas en bucle: castillo, camino de día y de noche, oscuridad, combate y jefe. */
+export type Track = 'castle' | 'road' | 'night' | 'dark' | 'battle' | 'boss';
+/** Fanfarrias de una sola vez. */
+export type Jingle = 'victory' | 'defeat';
+
+/** Las pistas ya traen un fundido de salida de 3 s: la siguiente vuelta entra encima. */
+const LOOP_OVERLAP = 3;
+
+interface Playing {
+  gain: GainNode;
+  srcs: AudioBufferSourceNode[];
+  timer: number;
+}
 
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private master!: GainNode;
   private musicBus!: GainNode;
   private sfxBus!: GainNode;
-  private dayBus!: GainNode;
-  private nightBus!: GainNode;
-  private delay!: DelayNode;
+  /** Baja la música mientras suena una fanfarria. */
+  private duck!: GainNode;
   private wind!: GainNode;
   private noise!: AudioBuffer;
-  private timer: number | null = null;
-  private nextBar = 0;
-  private bar = 0;
   private night = 0;
+  private buffers = new Map<string, Promise<AudioBuffer | null>>();
+  /** La pista pedida (aunque aún no haya contexto de audio) y la que suena. */
+  private want: Track | null = null;
+  private playing: Playing | null = null;
+  private switches = 0;
 
   musicVolume = 0.55;
   sfxVolume = 0.8;
@@ -83,27 +83,10 @@ export class AudioEngine {
 
     this.musicBus = ctx.createGain();
     this.sfxBus = ctx.createGain();
+    this.duck = ctx.createGain();
+    this.duck.connect(this.musicBus);
     this.musicBus.connect(this.master);
     this.sfxBus.connect(this.master);
-
-    this.dayBus = ctx.createGain();
-    this.nightBus = ctx.createGain();
-    this.nightBus.gain.value = 0;
-
-    // Eco suave compartido por la música.
-    this.delay = ctx.createDelay(1);
-    this.delay.delayTime.value = 0.42;
-    const fb = ctx.createGain();
-    fb.gain.value = 0.38;
-    const tone = ctx.createBiquadFilter();
-    tone.type = 'lowpass';
-    tone.frequency.value = 2400;
-    this.delay.connect(tone).connect(fb).connect(this.delay);
-    this.delay.connect(this.musicBus);
-    this.dayBus.connect(this.musicBus);
-    this.nightBus.connect(this.musicBus);
-    this.dayBus.connect(this.delay);
-    this.nightBus.connect(this.delay);
 
     this.noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = this.noise.getChannelData(0);
@@ -111,96 +94,101 @@ export class AudioEngine {
 
     this.startWind();
     this.applyVolumes();
-    this.nextBar = ctx.currentTime + 0.2;
-    this.timer = window.setInterval(() => this.schedule(), 250);
+    if (this.want) void this.switchTo(this.want);
   }
 
   applyVolumes() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(this.muted ? 0 : 1, t, 0.05);
-    this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.5, t, 0.1);
+    this.musicBus.gain.setTargetAtTime(this.musicVolume * 0.7, t, 0.1);
     this.sfxBus.gain.setTargetAtTime(this.sfxVolume * 0.7, t, 0.05);
   }
 
-  /** 0 = día, 1 = noche. Funde la música y el viento. */
+  /** 0 = día, 1 = noche: el viento sopla más fuerte de noche. */
   setNight(f: number) {
     if (!this.ctx || Math.abs(f - this.night) < 0.01) return;
     this.night = f;
-    const t = this.ctx.currentTime;
-    this.dayBus.gain.setTargetAtTime(1 - f, t, 0.4);
-    this.nightBus.gain.setTargetAtTime(f, t, 0.4);
-    this.wind.gain.setTargetAtTime(0.025 + f * 0.05, t, 0.6);
+    this.wind.gain.setTargetAtTime(0.025 + f * 0.05, this.ctx.currentTime, 0.6);
   }
 
   dispose() {
-    if (this.timer !== null) clearInterval(this.timer);
+    if (this.playing) clearTimeout(this.playing.timer);
     void this.ctx?.close();
   }
 
   // ───────────────────────── música ─────────────────────────
 
-  private schedule() {
-    const ctx = this.ctx!;
-    const barLen = 4.8;
-    while (this.nextBar < ctx.currentTime + 1) {
-      const t = this.nextBar;
-      const i = this.bar % 4;
-      for (const n of DAY_CHORDS[i]) this.pad(midi(n), t, barLen + 1.5, this.dayBus, 0.05);
-      for (const n of NIGHT_CHORDS[i]) this.pad(midi(n - 12), t, barLen + 1.5, this.nightBus, 0.055, 520);
-      // Arpegios dispersos: más vivos de día, campanas lentas de noche.
-      for (let k = 0; k < 8; k++) {
-        if (Math.random() < 0.42) {
-          const n = DAY_SCALE[Math.floor(Math.random() * DAY_SCALE.length)];
-          this.pluck(midi(n), t + k * (barLen / 8), this.dayBus, 0.045);
-        }
-      }
-      for (let k = 0; k < 3; k++) {
-        if (Math.random() < 0.45) {
-          const n = NIGHT_SCALE[Math.floor(Math.random() * NIGHT_SCALE.length)];
-          this.bell(midi(n), t + k * (barLen / 3) + Math.random() * 0.3, this.nightBus, 0.03, 3.5);
-        }
-      }
-      this.nextBar += barLen;
-      this.bar++;
-    }
+  /** Cambia de pista con un fundido (o la apaga con `null`). Si no hay audio aún, la deja pedida. */
+  music(name: Track | null) {
+    if (name === this.want) return;
+    this.want = name;
+    if (this.ctx) void this.switchTo(name);
   }
 
-  private pad(freq: number, t: number, dur: number, out: AudioNode, vol: number, cutoff = 1100) {
-    const ctx = this.ctx!;
-    const g = ctx.createGain();
-    const f = ctx.createBiquadFilter();
-    f.type = 'lowpass';
-    f.frequency.value = cutoff;
-    f.Q.value = 0.4;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + 1.6);
-    g.gain.setValueAtTime(vol, t + dur - 1.8);
-    g.gain.linearRampToValueAtTime(0, t + dur);
-    f.connect(g).connect(out);
-    for (const detune of [-7, 6]) {
-      const o = ctx.createOscillator();
-      o.type = 'sawtooth';
-      o.frequency.value = freq;
-      o.detune.value = detune;
-      o.connect(f);
-      o.start(t);
-      o.stop(t + dur + 0.1);
-    }
+  /** Fanfarria de victoria o de derrota: la música baja mientras suena. */
+  async jingle(name: Jingle) {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const buf = await this.load(name);
+    if (!buf) return void this.play(name);
+    const t = ctx.currentTime;
+    this.duck.gain.setTargetAtTime(0.12, t, 0.15);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.connect(this.musicBus);
+    src.start(t + 0.05);
+    this.duck.gain.setTargetAtTime(1, t + buf.duration - 1, 0.8);
   }
 
-  private pluck(freq: number, t: number, out: AudioNode, vol: number) {
+  private load(name: string) {
+    let p = this.buffers.get(name);
+    if (!p) {
+      p = fetch(`${import.meta.env.BASE_URL}music/${name}.m4a`)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText))))
+        .then((data) => this.ctx!.decodeAudioData(data))
+        .catch(() => null);
+      this.buffers.set(name, p);
+    }
+    return p;
+  }
+
+  private async switchTo(name: Track | null) {
     const ctx = this.ctx!;
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = 'triangle';
-    o.frequency.value = freq;
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(vol, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.2);
-    o.connect(g).connect(out);
-    o.start(t);
-    o.stop(t + 1.3);
+    const token = ++this.switches;
+    if (this.playing) this.fadeOut(this.playing, 1.6);
+    this.playing = null;
+    if (!name) return;
+    const buf = await this.load(name);
+    // Mientras cargaba se pudo pedir otra pista.
+    if (!buf || token !== this.switches) return;
+    const gain = ctx.createGain();
+    gain.gain.value = 0;
+    gain.gain.setTargetAtTime(1, ctx.currentTime, 0.5);
+    gain.connect(this.duck);
+    const playing: Playing = { gain, srcs: [], timer: 0 };
+    this.playing = playing;
+    // Cada vuelta empieza cuando la anterior entra en su fundido de salida.
+    const lap = (at: number) => {
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(gain);
+      src.start(at);
+      playing.srcs.push(src);
+      src.onended = () => playing.srcs.splice(playing.srcs.indexOf(src), 1);
+      const next = at + buf.duration - LOOP_OVERLAP;
+      playing.timer = window.setTimeout(() => lap(next), Math.max(0, (next - ctx.currentTime - 1) * 1000));
+    };
+    lap(ctx.currentTime + 0.05);
+  }
+
+  private fadeOut(p: Playing, seconds: number) {
+    clearTimeout(p.timer);
+    p.gain.gain.setTargetAtTime(0, this.ctx!.currentTime, seconds / 4);
+    setTimeout(() => {
+      for (const s of p.srcs) s.stop();
+      p.gain.disconnect();
+    }, seconds * 1000 + 200);
   }
 
   private bell(freq: number, t: number, out: AudioNode, vol: number, decay = 2) {

@@ -2,7 +2,7 @@ import './hd2d.css';
 import '../ui/theme.css';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { audio } from '../audio/Audio';
+import { audio, Track } from '../audio/Audio';
 import { mountSoundControl } from '../audio/SoundControl';
 import type { Biome } from '../combat/rules/data';
 import { buildDiorama } from './diorama/build';
@@ -123,6 +123,8 @@ ui.innerHTML = `
     </div>
   </nav>
   <p class="hd-hint">Arrastra para girar · rueda para acercar</p>`;
+/** La pista que sonaría en el juego con este bioma y esta hora. */
+const galleryMusic = (m: Mode): Track => (biome === 'castle' ? 'castle' : m === 'dark' || biome === 'lair' || biome === 'den' ? 'dark' : m === 'night' ? 'night' : 'road');
 const syncModes = () => {
   for (const b of ui.querySelectorAll<HTMLButtonElement>('[data-mode]')) b.classList.toggle('on', b.dataset.mode === look.mode);
 };
@@ -132,6 +134,7 @@ for (const b of ui.querySelectorAll<HTMLButtonElement>('[data-mode]')) {
     const m = b.dataset.mode as Mode;
     look.set(m);
     audio.setNight(m === 'day' ? 0.2 : m === 'dusk' ? 0.6 : 1);
+    audio.music(galleryMusic(m));
     audio.play(m === 'night' || m === 'dark' ? 'nightfall' : 'dawn');
     syncModes();
   });
@@ -155,6 +158,7 @@ for (const b of ui.querySelectorAll<HTMLButtonElement>('[data-fx]')) {
 }
 syncModes();
 mountSoundControl();
+audio.music(galleryMusic(look.mode));
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 
 if (import.meta.env.DEV) Object.assign(window, { scene, camera, look, forest, post, renderer });
