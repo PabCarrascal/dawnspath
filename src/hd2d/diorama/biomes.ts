@@ -10,6 +10,8 @@ export interface BiomeDef {
   ground: px.GroundKey;
   /** Color hacia el que se tiñe la niebla de cualquier hora, y cuánto. */
   fog?: { color: number; mix: number };
+  /** Nieve que cae. */
+  snow?: boolean;
   /** Polvo flotante y luciérnagas (o fuegos fatuos). */
   motes?: number;
   fireflies?: number;
@@ -40,8 +42,8 @@ function trees(k: Kit, prob: (i: number, j: number) => number, pick: () => [Tree
   });
 }
 
-/** Rocas sueltas en celdas libres. */
-function rocks(k: Kit, n: number, near?: (i: number, j: number) => boolean, tones?: number[]) {
+/** Rocas sueltas en celdas libres (`snowy`: proporción con nieve encima). */
+function rocks(k: Kit, n: number, near?: (i: number, j: number) => boolean, tones?: number[], snowy = 0) {
   for (let t = 0; t < n * 4 && n > 0; t++) {
     const i = k.rng.int(0, W - 1);
     const j = k.rng.int(0, D - 1);
@@ -49,7 +51,7 @@ function rocks(k: Kit, n: number, near?: (i: number, j: number) => boolean, tone
     const x = wx(i) + (k.rng.next() - 0.5) * 0.6;
     const z = wz(j) + (k.rng.next() - 0.5) * 0.6;
     if (!k.free(x, z, 1.3)) continue;
-    k.rock(x, z, 0.15 + k.rng.next() * 0.3, tones);
+    k.rock(x, z, 0.15 + k.rng.next() * 0.3, tones, snowy > 0 && k.rng.chance(snowy));
     n--;
   }
 }
@@ -284,11 +286,15 @@ const shrine: BiomeDef = {
 
 // ───────────────────────── paso de montaña ─────────────────────────
 
+// Arroyo que baja de la poza de la cascada hasta el borde delantero.
+const brookX = (j: number) => 6 + Math.round(Math.sin(j * 0.55 + 1));
+
 const mountain: BiomeDef = {
   ground: 'alpine',
   fog: { color: 0xc8d4e8, mix: 0.22 },
   motes: 0xffffff,
-  far: { kinds: ['pine', 'pine', 'dead'], leaves: ['pine', 'pine', 'green'] },
+  snow: true,
+  far: { kinds: ['pine', 'pine', 'dead'], leaves: ['snow', 'pine', 'snow'] },
   layout(g, r) {
     g.each((i, j) => g.set(i, j, 'grass', 0));
     // Paredes del desfiladero: al fondo y a los lados, con nieve en lo alto
@@ -299,20 +305,53 @@ const mountain: BiomeDef = {
       if (side <= 4 && j <= 13) h = Math.max(h, 6 - side - Math.floor(j / 5) + r.int(0, 1));
       if (h > 0) g.set(i, j, h >= 5 ? 'snow' : 'rock', h);
     });
+    // La nieve baja más por las paredes
+    g.each((i, j, c) => {
+      if (c.type === 'rock' && c.h >= 3 && r.chance(0.6)) g.set(i, j, 'snow', c.h);
+    });
+    // Peñón a la izquierda: la cascada cae de su cara hasta una poza y sigue en arroyo
+    g.fill(5, 0, 9, 3, 'snow', 7);
+    g.fill(5, 3, 9, 3, 'rock', 6);
+    g.fill(6, 4, 8, 5, 'river');
+    for (let j = 6; j < D; j++) {
+      const x = brookX(j);
+      g.set(x, j, 'river');
+      g.set(x + 1, j, 'river');
+    }
     for (let j = 5; j < D; j++) {
       const x = Math.round(13 + Math.sin(j * 0.5) * 1.5);
-      for (const i of [x, x + 1]) if (g.at(i, j)!.h === 0) g.set(i, j, 'path', 0);
+      for (const i of [x, x + 1]) if (g.at(i, j)!.h === 0 && !g.isWater(i, j)) g.set(i, j, 'path', 0);
     }
     // El camino sube por una garganta entre las paredes del fondo
     for (let j = 0; j <= 5; j++) for (const i of [12, 13, 14, 15]) g.set(i, j, 'path', Math.max(0, 2 - Math.floor(j / 2)));
   },
   decorate(k) {
-    rocks(k, 26, undefined, [0x6e6a66, 0x7e7a74, 0x8e8a84, 0x5e5a58]);
-    trees(k, (i, j) => (k.grid.at(i, j)!.type === 'rock' ? 0.3 : j >= 12 ? 0.1 : 0.04), () => ['pine', 'pine'], [0.7, 1.2]);
+    k.peaks(9);
+    k.cascade(wx(7), wz(3) + 0.52, 6, 2.2);
+    rocks(k, 26, undefined, [0x6e6a66, 0x7e7a74, 0x8e8a84, 0x5e5a58], 0.5);
+    rocks(k, 8, (i, j) => Math.abs(i - brookX(j)) <= 2 && j > 5, [0x6e6a66, 0x7e7a74, 0x8e8a84, 0x5e5a58]);
+    trees(k, (i, j) => (k.grid.at(i, j)!.type === 'rock' ? 0.3 : j >= 12 ? 0.1 : 0.05), () => ['pine', k.rng.chance(0.6) ? 'snow' : 'pine'], [0.7, 1.3]);
     k.scatter([k.texture('tuft1', () => px.tuft(k.seed + 30))], 0.45, 0.35, grassy(k), 0xb0b89a);
+    // Brezo y flores de alta montaña
+    k.scatter(
+      [k.texture('heather', () => px.flowers(k.seed + 38, 0xb05ac8, 0xd890e8)), k.texture('fl2', () => px.flowers(k.seed + 34, 0xf8f8f0, 0xf0c040))],
+      0.45,
+      0.3,
+      grassy(k),
+    );
+    k.mist(7, 1.6, 0xf0f4ff, 0.22);
+    reedsAlong(k, 0.8, 0xb0b89a);
+    // Los lobos de piedra guardan la entrada de la garganta, con braseros y banderas de oración
+    k.wolfStatue(wx(10.4), wz(6.4), 0.4, 1.35);
+    k.wolfStatue(wx(17.6), wz(6.4), -0.4, 1.35);
+    k.brazier(wx(11.6), wz(7.1));
+    k.brazier(wx(16.4), wz(7.1));
+    for (const i of [11.2, 16.8]) k.add(k.box(0.08, 2.3, 0.08, k.color(0x4a3424), 0, 1.15, 0), wx(i), wz(5.6));
+    k.bunting(new THREE.Vector3(wx(11.2), 2.25, wz(5.6)), new THREE.Vector3(wx(16.8), 2.25, wz(5.6)), [0xd84a3a, 0xf0d040, 0x3a8ad8, 0xf4f0e0, 0x4aa85a], 0.6);
     // Mojón y una vieja señal
     for (let n = 0; n < 4; n++) k.rock(wx(18.5), wz(12.5), 0.3 - n * 0.06).position.y += n * 0.18;
     k.sign(wx(10.5), wz(12.5), -0.3);
+    k.bones(wx(20.5), wz(7.5));
   },
 };
 
@@ -332,18 +371,45 @@ const bog: BiomeDef = {
       const n = Math.sin(i * 0.7 + j * 0.3) + Math.cos(j * 0.8 - i * 0.25);
       if (n > 0.3 || r.chance(0.1)) g.set(i, j, 'pool');
     });
+    // Charca grande a la derecha, donde está la choza
+    g.fill(19, 2, 24, 6, 'pool');
+    // Islotes con algo más de altura entre las charcas
+    for (const [i, j] of [[3, 3], [9, 2], [4, 13]]) g.fill(i, j, i + 1, j + 1, 'grass', 1);
   },
   decorate(k) {
     // Pasarela de tablones que atraviesa las charcas hacia el fondo
     k.boardwalk(wx(13.5), wz(15), wx(13.5), wz(12));
     k.boardwalk(wx(14), wz(7.8), wx(16), wz(1));
+    k.boardwalk(wx(16.6), wz(4.6), wx(20.6), wz(4.4));
+    k.stiltHut(wx(21.8), wz(4), -0.25);
+    k.sunkenBoat(wx(6.5), wz(6.5), 0.6);
+    for (const [i, j] of [[13, 13.4], [15.6, 6], [16.2, 2.4], [6.8, 11]]) k.bogLantern(wx(i), wz(j));
+    // Columnas de un santuario anegado
+    for (const [i, j, h] of [[4.5, 8, 1.6], [5.8, 9.2, 0.9], [22.5, 9.8, 1.3]] as const) k.column(wx(i), wz(j), h, true).position.y = -0.35;
     k.grid.each((i, j, c) => {
       if (c.type === 'pool' && k.rng.chance(0.3)) k.lily(wx(i) + (k.rng.next() - 0.5) * 0.6, wz(j) + (k.rng.next() - 0.5) * 0.6);
     });
-    trees(k, (i, j) => (j <= 4 ? 0.25 : i <= 2 || i >= W - 3 ? 0.25 : 0.05), () => (k.rng.chance(0.7) ? ['dead', 'green'] : ['willow', 'green']), [0.9, 1.5]);
+    for (let n = 0; n < 9; n++) {
+      const x = wx(k.rng.int(1, W - 2)) + k.rng.next() - 0.5;
+      const z = wz(k.rng.int(1, D - 2)) + k.rng.next() - 0.5;
+      if (k.free(x, z, 1.25)) k.glowShrooms(x, z, k.rng.chance(0.3) ? 0x9a8aff : 0x5af0c8);
+    }
+    let mossy = 0;
+    k.grid.each((i, j, c) => {
+      if (c.type === 'pool' || clearCell(i, j, 1.5) || (j >= 11 && i >= 5 && i <= W - 5)) return;
+      const x = wx(i) + (k.rng.next() - 0.5) * 0.5;
+      const z = wz(j) + (k.rng.next() - 0.5) * 0.5;
+      const p = j <= 4 ? 0.25 : i <= 2 || i >= W - 3 ? 0.25 : 0.05;
+      if (mossy < 18 && k.free(x, z, 1.5) && k.rng.chance(p)) {
+        k.mossTree(x, z, 0.9 + k.rng.next() * 0.6);
+        mossy++;
+      }
+    });
     greenery(k, 0.5, 0, 0xa8b088);
-    reedsAlong(k, 1.6, 0xb8c090);
+    reedsAlong(k, 1.2, 0xb8c090);
+    k.scatter([k.texture('cattail', () => px.cattail(k.seed + 37))], 0.8, 0.7, nearWater(k));
     rocks(k, 6, undefined, [0x4a4a42, 0x56564c, 0x626256, 0x3e3e38]);
+    k.mist(14, -0.05, 0xd0e0c8, 0.3);
   },
 };
 

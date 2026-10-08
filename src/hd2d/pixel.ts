@@ -240,6 +240,8 @@ export const LEAF_TONES = {
   orange: [0x8a3a14, 0xb4501c, 0xd8702a, 0xf0a040],
   red: [0x6a1a14, 0x9a2a1c, 0xc23e24, 0xe86a3a],
   gold: [0x8a6a14, 0xb8901c, 0xd8b02a, 0xf0d860],
+  /** Pino nevado: los grumos iluminados son nieve. */
+  snow: [0x183a22, 0x1f4a2a, 0x2a6034, 0xe8f0f8],
 };
 
 export function water(seed: number) {
@@ -319,6 +321,40 @@ export function fern(seed: number) {
       }
     }
   }
+  return p;
+}
+
+/** Espadañas: tallos con la mazorca parda en lo alto. */
+export function cattail(seed: number) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  for (let i = 0; i < 5; i++) {
+    const x = 2 + rng.int(0, 11);
+    const top = rng.int(1, 6);
+    for (let y = 15; y > top; y--) p.set(x, y, y < top + 6 ? 0x6a8a3a : 0x4a6a2a);
+    p.rect(x, top + 1, 1, 3, 0x6a3e1e);
+    p.set(x, top + 1, 0x8a5a2e);
+    p.set(x, top, 0x8a9a5a);
+  }
+  return p;
+}
+
+/** Musgo que cuelga de las ramas en hebras desiguales. */
+export function moss(seed: number) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 32);
+  for (let x = 0; x < 16; x++) {
+    if (rng.chance(0.25)) continue;
+    const len = rng.int(8, 31);
+    for (let y = 0; y < len; y++) p.set(x + (y > 12 && rng.chance(0.15) ? 1 : 0), y, y > len - 4 ? 0x8a9a5a : rng.chance(0.3) ? 0x5a6a3a : 0x6e7e48);
+  }
+  return p;
+}
+
+/** Banderín triangular con la punta hacia abajo y una franja. */
+export function pennant(color: number, stripe: number) {
+  const p = new Px(8, 8);
+  for (let y = 0; y < 8; y++) for (let x = Math.floor(y / 2); x < 8 - Math.floor(y / 2); x++) p.set(x, y, y === 2 ? stripe : color);
   return p;
 }
 

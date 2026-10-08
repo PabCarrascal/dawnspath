@@ -76,6 +76,47 @@ export function crossQuad(size: number) {
   return g;
 }
 
+/** Copos que caen despacio y derivan con el viento, en una caja de `area`. */
+export function snowfall(count: number, rng: Rng, area: [number, number, number], size = 0.09) {
+  const pos = new Float32Array(count * 3);
+  const phase = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    pos[i * 3] = (rng.next() - 0.5) * area[0];
+    pos[i * 3 + 1] = rng.next() * area[1];
+    pos[i * 3 + 2] = (rng.next() - 0.5) * area[2];
+    phase[i] = rng.next() * 100;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('phase', new THREE.BufferAttribute(phase, 1));
+  const mat = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uTime: { value: 0 }, uHeight: { value: area[1] }, uSize: { value: size }, uColor: { value: new THREE.Color(0xf4f8ff) } },
+    vertexShader: `
+      attribute float phase;
+      uniform float uTime;
+      uniform float uHeight;
+      uniform float uSize;
+      void main() {
+        vec3 p = position;
+        p.y = uHeight - mod(uHeight - p.y + uTime * (0.45 + fract(phase) * 0.35), uHeight);
+        p.x += sin(uTime * 0.6 + phase) * 0.5 + uTime * 0.12;
+        p.x = mod(p.x + 15.0, 30.0) - 15.0;
+        p.z += cos(uTime * 0.4 + phase * 1.7) * 0.4;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0);
+        gl_PointSize = uSize * (300.0 / -mv.z);
+        gl_Position = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      uniform vec3 uColor;
+      void main() {
+        gl_FragColor = vec4(uColor, 0.85);
+      }`,
+  });
+  return new THREE.Points(geo, mat);
+}
+
 /** Puntos que flotan: polvo de luz, luciérnagas, chispas o fuegos fatuos. */
 export function floaters(count: number, rng: Rng, area: [number, number, number], size: number, color = 0xffe0a0) {
   const pos = new Float32Array(count * 3);

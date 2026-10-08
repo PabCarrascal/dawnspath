@@ -3,7 +3,7 @@ import type { Biome } from '../../combat/rules/data';
 import { Rng } from '../../core/rng';
 import { SpriteKind, spriteSheet } from '../characters';
 import * as px from '../pixel';
-import { floaters, PixelSprite } from '../sprite';
+import { floaters, PixelSprite, snowfall } from '../sprite';
 import { BIOMES, BiomeDef } from './biomes';
 import { BATTLE, BOTTOM, CellType, D, Grid, slot, W, wx, wz } from './grid';
 import { Kit } from './kit';
@@ -213,6 +213,11 @@ export function buildDiorama(biomeKey: BiomeKey, opts: { seed?: number; scene?: 
   const fireflies = floaters(60, rng, [W - 4, 2.2, D - 2], 0.3, biome.fireflies ?? 0xc8ff70);
   fireflies.position.y = 0.3;
   group.add(motes, fireflies);
+  const snow = biome.snow ? snowfall(900, rng, [30, 9, D + 6], 0.24) : null;
+  if (snow) {
+    snow.position.set(0, 0, 1);
+    group.add(snow);
+  }
 
   // ── Luces ──
   const sun = new THREE.DirectionalLight(0xffffff, 2);
@@ -246,6 +251,7 @@ export function buildDiorama(biomeKey: BiomeKey, opts: { seed?: number; scene?: 
       }
       (motes.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
       (fireflies.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
+      if (snow) (snow.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
     },
   };
 }
