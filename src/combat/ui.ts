@@ -30,10 +30,10 @@ export class CombatUi {
       <div class="cb-banner" data-id="banner"><h2></h2><p></p></div>
       <ol class="cb-log" data-id="log"></ol>
       <div class="cb-bubbles" data-id="bubbles"></div>
+      <nav class="cb-command" data-id="command" aria-label="Habilidades"><ol data-id="skills"></ol></nav>
       <footer class="cb-panel" data-id="panel">
         <section class="cb-card" data-id="actor"></section>
         <section class="cb-skills">
-          <div class="cb-skill-row" data-id="skills"></div>
           <div class="cb-skill-info" data-id="skill-info"></div>
         </section>
         <section class="cb-card cb-target" data-id="target"></section>
@@ -140,34 +140,59 @@ export class CombatUi {
 
   // ───────────────────────── habilidades ─────────────────────────
 
+  /**
+   * Lista vertical de habilidades junto al personaje activo (como el menú de
+   * órdenes de Octopath). Se coloca con `placeCommand` cada fotograma.
+   */
   showSkills(actor: Fighter | null, selected: string | null) {
-    const row = this.q('skills');
-    row.innerHTML = '';
+    const list = this.q('skills');
+    const menu = this.q('command');
+    list.innerHTML = '';
+    menu.classList.toggle('on', !!actor);
     if (!actor) {
       this.q('skill-info').innerHTML = '';
       return;
     }
-    this.combat.skillsOf(actor.id).forEach(({ skill, usable, reason }, i) => {
+    const item = (cls: string, html: string, title: string) => {
+      const li = document.createElement('li');
       const b = document.createElement('button');
-      b.className = `cb-skill ${skill.id === selected ? 'selected' : ''}`;
+      b.className = `cb-cmd ${cls}`;
+      b.title = title;
+      b.innerHTML = html;
+      li.appendChild(b);
+      list.appendChild(li);
+      return b;
+    };
+    this.combat.skillsOf(actor.id).forEach(({ skill, usable, reason }, i) => {
+      const b = item(skill.id === selected ? 'selected' : '', `<span class="glyph">${skill.icon}</span><span class="nm">${skill.name}</span><kbd>${i + 1}</kbd>`, reason ?? '');
       b.disabled = !usable;
-      b.title = reason ?? '';
-      b.innerHTML = `<span class="glyph">${skill.icon}</span><span class="nm">${skill.name}</span><kbd>${i + 1}</kbd>`;
       b.addEventListener('click', () => this.hooks.onSkill(skill.id));
       b.addEventListener('pointerenter', () => this.skillInfo(skill, actor, reason));
       b.addEventListener('pointerleave', () => {
         const cur = selected ? this.combat.skill(selected) : null;
         if (cur) this.skillInfo(cur, actor);
       });
-      row.appendChild(b);
     });
-    const retreat = document.createElement('button');
-    retreat.className = 'cb-skill retreat';
-    retreat.innerHTML = '<span class="glyph">⚑</span><span class="nm">Retirada</span>';
-    retreat.title = 'Abandona el combate. Todo el grupo sufre +10 de estrés.';
+    const retreat = item('retreat', '<span class="glyph">⚑</span><span class="nm">Retirada</span>', 'Abandona el combate. Todo el grupo sufre +10 de estrés.');
     retreat.addEventListener('click', () => this.hooks.onRetreat());
-    row.appendChild(retreat);
     if (selected) this.skillInfo(this.combat.skill(selected), actor);
+  }
+
+  /**
+   * Coloca el menú a un lado del personaje (`x` es su centro, `top` y `feet`
+   * la cabeza y los pies en pantalla): a la izquierda si cabe, si no a la
+   * derecha, y nunca tapando las fichas de los pies.
+   */
+  placeCommand(x: number, top: number, feet: number) {
+    const menu = this.q('command');
+    if (!menu.classList.contains('on')) return;
+    const w = menu.offsetWidth;
+    const h = menu.offsetHeight;
+    const gap = Math.max(26, (feet - top) * 0.32);
+    const left = x - gap - w >= 8 ? x - gap - w : Math.min(window.innerWidth - w - 8, x + gap);
+    const y = Math.max(64, Math.min(feet - h - 4, (top + feet) / 2 - h / 2));
+    menu.classList.toggle('right', left > x);
+    menu.style.transform = `translate(${Math.round(left)}px, ${Math.round(y)}px)`;
   }
 
   /** Descripción y el diagrama de posiciones: desde dónde se usa y a quién alcanza. */

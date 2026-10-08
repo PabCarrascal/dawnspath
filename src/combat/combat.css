@@ -340,66 +340,6 @@ body {
   align-items: center;
   gap: 8px;
 }
-.cb-skill-row {
-  display: flex;
-  gap: 8px;
-  min-height: 74px;
-}
-.cb-skill {
-  position: relative;
-  display: grid;
-  place-items: center;
-  gap: 2px;
-  width: 92px;
-  height: 74px;
-  padding: 6px 4px;
-  border: 2px solid var(--panel-edge);
-  background: linear-gradient(180deg, #2a2118, #120e0a);
-  color: var(--bone);
-  font-family: var(--serif);
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    transform 0.12s,
-    opacity 0.2s;
-}
-.cb-skill .glyph {
-  font-size: 24px;
-  line-height: 1;
-  color: var(--gold);
-}
-.cb-skill .nm {
-  font-size: 12.5px;
-  line-height: 1.1;
-  text-align: center;
-}
-.cb-skill kbd {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-family: var(--serif);
-  font-size: 11px;
-  color: var(--bone-dim);
-}
-.cb-skill:hover:not(:disabled) {
-  border-color: var(--gold);
-  transform: translateY(-2px);
-}
-.cb-skill.selected {
-  border-color: var(--gold-bright);
-  box-shadow: 0 0 14px rgba(255, 210, 122, 0.4);
-}
-.cb-skill:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-.cb-skill.retreat .glyph {
-  color: var(--bone-dim);
-}
-#overlay:not(.player-turn) .cb-skill {
-  opacity: 0.25;
-  pointer-events: none;
-}
 
 .cb-skill-info {
   display: flex;
@@ -596,8 +536,5 @@ body {
   }
   .cb-log {
     display: none;
-  }
-  .cb-skill {
-    width: 76px;
   }
 }

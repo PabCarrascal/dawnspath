@@ -153,8 +153,14 @@ export class Hd2dCombatView implements BattleView {
       <div class="hd-status"></div>
       <div class="hd-door">☠</div>
       <i class="hd-hp"><i></i></i>
-      ${f.side === 'party' ? '<div class="hd-pips">' + '<i></i>'.repeat(10) + '</div>' : ''}`;
+      ${f.side === 'party' ? '<div class="hd-pips">' + '<i></i>'.repeat(10) + '</div>' : ''}
+      <b class="hd-hit"></b>`;
     this.layer.appendChild(plate);
+    // La ficha de los pies también sirve para elegir objetivo (por si el menú tapa el sprite).
+    const hit = plate.querySelector<HTMLElement>('.hd-hit')!;
+    hit.addEventListener('pointerenter', () => !u.dead && this.hooks.onHover(f.id));
+    hit.addEventListener('pointerleave', () => this.hooks.onHover(this.hovered));
+    hit.addEventListener('click', () => !u.dead && this.hooks.onClick(f.id));
 
     const u: Unit = {
       f,
@@ -315,6 +321,12 @@ export class Hd2dCombatView implements BattleView {
     if (!u) return { x: 0, y: 0 };
     const m = u.sprite.mesh;
     return this.project(m.position.x, m.position.y + u.sprite.height + 0.25, m.position.z);
+  }
+
+  feetOf(id: number) {
+    const u = this.units.get(id);
+    if (!u) return { x: 0, y: 0 };
+    return this.project(u.base.x, 0, u.base.z);
   }
 
   destroy() {

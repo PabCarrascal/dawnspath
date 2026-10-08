@@ -348,39 +348,7 @@ em.affl,
 .cb-panel {
   background: linear-gradient(180deg, rgba(6, 10, 26, 0) 0%, rgba(6, 10, 26, 0.88) 32%) !important;
 }
-.cb-skill {
-  border-radius: 6px !important;
-  border: 1px solid var(--panel-edge) !important;
-  background: var(--oct-btn) !important;
-  color: var(--bone) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 4px 10px rgba(0, 0, 0, 0.4);
-}
-.cb-skill .glyph {
-  color: var(--gold-bright) !important;
-  text-shadow: 0 0 8px rgba(246, 220, 140, 0.45);
-}
-.cb-skill .nm {
-  font-family: var(--serif);
-  font-weight: 500;
-}
-.cb-skill:hover:not(:disabled) {
-  border-color: var(--gold-bright) !important;
-}
-.cb-skill.selected {
-  background: var(--oct-gold) !important;
-  border-color: #fff0c0 !important;
-  color: #1a1430 !important;
-  box-shadow: 0 0 18px rgba(246, 220, 140, 0.55) !important;
-}
-.cb-skill.selected .glyph {
-  color: #3a2a10 !important;
-  text-shadow: none;
-}
-.cb-skill.selected kbd {
-  color: #3a2a10;
-}
+
 .cb-ranks i {
   border-color: rgba(243, 238, 223, 0.5);
 }
@@ -631,4 +599,132 @@ em.affl,
 
 .cp-modal .cp-map-side h2 {
   font-size: 20px;
+}
+
+/* ───────────────────────── menú de órdenes ───────────────────────── */
+
+/* Lista vertical junto al personaje activo, como el menú de batalla de Octopath. */
+.cb-command {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  min-width: 188px;
+  padding: 7px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 6px;
+  background: var(--oct-corners), var(--oct-bg);
+  box-shadow: var(--oct-frame);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.18s,
+    visibility 0s 0.18s;
+}
+#overlay.player-turn .cb-command.on {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s;
+}
+/* Pico que señala al personaje */
+.cb-command::after {
+  content: '';
+  position: absolute;
+  right: -7px;
+  bottom: 18px;
+  border: 7px solid transparent;
+  border-right: 0;
+  border-left-color: var(--panel-edge);
+}
+.cb-command.right::after {
+  right: auto;
+  left: -7px;
+  border-left: 0;
+  border-right: 7px solid var(--panel-edge);
+}
+.cb-command ol {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cb-command li:last-child {
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px solid rgba(212, 178, 94, 0.3);
+}
+.cb-cmd {
+  position: relative;
+  display: grid;
+  grid-template-columns: 22px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 10px 4px 22px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--bone);
+  font-family: var(--serif);
+  font-size: 16px;
+  text-align: left;
+  cursor: pointer;
+}
+.cb-cmd .glyph {
+  color: var(--gold-bright);
+  text-align: center;
+  text-shadow: 0 0 8px rgba(246, 220, 140, 0.45);
+}
+.cb-cmd kbd {
+  font-family: var(--serif);
+  font-size: 12px;
+  color: var(--bone-dim);
+}
+.cb-cmd:hover:not(:disabled) {
+  border-color: rgba(246, 220, 140, 0.5);
+  background: rgba(246, 220, 140, 0.08);
+}
+/* La elegida: franja dorada y el cursor ▶ a la izquierda */
+.cb-cmd.selected {
+  border-color: #fff0c0;
+  background: linear-gradient(90deg, rgba(246, 220, 140, 0.95), rgba(226, 191, 104, 0.75));
+  color: #1a1430;
+}
+.cb-cmd.selected .glyph,
+.cb-cmd.selected kbd {
+  color: #3a2a10;
+  text-shadow: none;
+}
+.cb-cmd.selected::before {
+  content: '▶';
+  position: absolute;
+  left: 6px;
+  font-size: 10px;
+  color: #3a2a10;
+  animation: cmd-nudge 0.8s ease-in-out infinite;
+}
+@keyframes cmd-nudge {
+  50% {
+    transform: translateX(2px);
+  }
+}
+.cb-cmd:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.cb-cmd.retreat .glyph {
+  color: var(--bone-dim);
+}
+
+/* La ficha bajo los pies también se puede pulsar */
+.hd-plate .hd-hit {
+  position: absolute;
+  left: -34px;
+  top: 2px;
+  width: 68px;
+  height: 26px;
+  pointer-events: auto;
+  cursor: pointer;
 }

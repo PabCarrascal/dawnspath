@@ -13,6 +13,8 @@ export interface BattleView {
   play(events: CombatEvent[], ui: Parameters<CombatView['play']>[1]): Promise<void>;
   setTargets(ids: number[], mode: 'enemy' | 'ally'): void;
   headOf(id: number): { x: number; y: number };
+  /** Pies del combatiente en pantalla (para colocar el menú a su lado). */
+  feetOf?(id: number): { x: number; y: number };
   destroy(): void;
 }
 
@@ -86,6 +88,19 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
     },
     sound: (name: string) => audio.play(name as Parameters<typeof audio.play>[0]),
   };
+
+  // El menú de habilidades sigue al personaje activo mientras la cámara deriva.
+  let follow = 0;
+  const track = () => {
+    const actor = combat.active;
+    if (actor && !busy) {
+      const head = view.headOf(actor.id);
+      const feet = view.feetOf?.(actor.id) ?? { x: head.x, y: head.y + 150 };
+      ui.placeCommand(feet.x, head.y, feet.y);
+    }
+    follow = requestAnimationFrame(track);
+  };
+  follow = requestAnimationFrame(track);
 
   const play = async (events: CombatEvent[]) => {
     busy = true;
@@ -171,6 +186,7 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
   };
 
   const dispose = () => {
+    cancelAnimationFrame(follow);
     window.removeEventListener('keydown', onKey);
     ui.destroy();
     view.destroy();
