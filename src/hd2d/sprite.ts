@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../core/rng';
-import { FRAMES } from './characters';
+import { FRAMES, IDLE_FRAMES, Pose, POSE_FRAME } from './characters';
 
 /** Píxeles de sprite por unidad del mundo. */
 export const SPRITE_PPU = 22;
@@ -12,10 +12,11 @@ export class PixelSprite {
   /** Alto del sprite en unidades del mundo. */
   readonly height: number;
   /** Mira a la izquierda (enemigos): la textura se invierte en horizontal. */
-  readonly flipped: boolean;
+  flipped: boolean;
   private tex: THREE.Texture;
   private t = Math.random() * 2;
   private frame = 0;
+  private pose: Pose = 'idle';
 
   constructor(sheet: THREE.Texture, scale: number, private fps = 1.6, flipped = false) {
     this.flipped = flipped;
@@ -36,9 +37,22 @@ export class PixelSprite {
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: this.tex, alphaTest: 0.5 });
   }
 
+  /** Gira el sprite hacia la izquierda o la derecha. */
+  face(left: boolean) {
+    if (left === this.flipped) return;
+    this.flipped = left;
+    this.tex.repeat.x = (left ? -1 : 1) / FRAMES;
+    this.tex.offset.x = (left ? this.frame + 1 : this.frame) / FRAMES;
+  }
+
+  /** Cuadro fijo de golpe o de dolor; `idle` vuelve a respirar. */
+  setPose(pose: Pose) {
+    this.pose = pose;
+  }
+
   update(dt: number, camera: THREE.Camera) {
     this.t += dt;
-    const f = Math.floor(this.t * this.fps) % FRAMES;
+    const f = this.pose === 'idle' ? Math.floor(this.t * this.fps) % IDLE_FRAMES : POSE_FRAME[this.pose];
     if (f !== this.frame) {
       this.frame = f;
       this.tex.offset.x = (this.flipped ? f + 1 : f) / FRAMES;

@@ -45,6 +45,8 @@ interface Unit {
   dead: boolean;
   target: 'none' | 'enemy' | 'ally';
   active: boolean;
+  /** Para volver del cuadro de dolor al de reposo. */
+  hurtTimer: number;
 }
 
 /**
@@ -169,6 +171,7 @@ export class Hd2dCombatView implements BattleView {
       dead: !f.alive,
       target: 'none',
       active: false,
+      hurtTimer: 0,
     };
     this.units.set(f.id, u);
     this.renderPlate(u);
@@ -316,6 +319,7 @@ export class Hd2dCombatView implements BattleView {
 
   destroy() {
     cancelAnimationFrame(this.raf);
+    for (const u of this.units.values()) clearTimeout(u.hurtTimer);
     window.removeEventListener('resize', this.onResize);
     this.renderer.domElement.removeEventListener('pointermove', this.onPointerMove);
     this.renderer.domElement.removeEventListener('pointerleave', this.onPointerLeave);
@@ -373,6 +377,13 @@ export class Hd2dCombatView implements BattleView {
       u.mat.emissive.set(0xffffff);
       u.mat.emissiveIntensity = 0.28;
     }, ms);
+  }
+
+  /** Cuadro de dolor un instante (o para siempre, si cae). */
+  private wince(u: Unit, ms = 420) {
+    clearTimeout(u.hurtTimer);
+    u.sprite.setPose('hurt');
+    if (ms > 0) u.hurtTimer = window.setTimeout(() => !u.dead && u.sprite.setPose('idle'), ms);
   }
 
   private shake(u: Unit, amount = 0.14) {
@@ -479,6 +490,7 @@ export class Hd2dCombatView implements BattleView {
       const u = acting;
       acting = null;
       await anim.wait(220);
+      u.sprite.setPose('idle');
       const from = { dx: u.pose.dx, dy: u.pose.dy };
       await Promise.all([
         anim.tween(300, (k) => {
@@ -524,12 +536,14 @@ export class Hd2dCombatView implements BattleView {
             if (DREAD.has(skill.id) && !skill.dmg) {
               // Grito o susurro: onda violeta y la pantalla se tiñe.
               ui.sound('roar');
+              actor.sprite.setPose('attack');
               this.screenTint('rgba(120, 40, 180, 0.35)');
               await Promise.all([this.focusCam(mid, 0.9), anim.tween(380, (k) => (actor.pose.dy = Math.sin(k * Math.PI) * 0.3), ease.out)]);
               acting = actor;
             } else if (ranged) {
               ui.sound(ARROWS.has(skill.id) ? 'swing' : 'zap');
               await this.focusCam(mid, 0.9);
+              actor.sprite.setPose('attack');
               await anim.tween(140, (k) => (actor.pose.dx = (actor.f.side === 'party' ? -1 : 1) * 0.15 * k), ease.out);
               await Promise.all(targets.map((t) => this.projectile(actor, t, ARROWS.has(skill.id) ? 'arrow' : 'bolt')));
               acting = actor;
@@ -547,14 +561,18 @@ export class Hd2dCombatView implements BattleView {
                 actor.pose.dy = Math.sin(k * Math.PI) * 0.35;
               }, ease.inOut);
               await camGo;
+              actor.sprite.setPose('attack');
               await anim.tween(90, (k) => (actor.pose.dx = reach + dir * 0.25 * k), ease.in);
               actor.pose.dz = 0;
               acting = actor;
             }
           } else {
             ui.sound('heal');
+            actor.sprite.setPose('attack');
             for (const t of targets) this.sparkle(t, skill.heal ? 0x7ef09a : 0xa8d0ff);
             await anim.tween(340, (k) => (actor.pose.dy = Math.sin(k * Math.PI) * 0.3), ease.out);
+            await anim.wait(160);
+            actor.sprite.setPose('idle');
           }
           break;
         }
@@ -574,6 +592,7 @@ export class Hd2dCombatView implements BattleView {
           this.renderPlate(u);
           if (ev.amount > 0) {
             this.flash(u, ev.source === 'bleed' ? 0xd86a3a : 0xff3a2a);
+            this.wince(u);
             void this.shake(u, ev.crit ? 0.24 : 0.14);
             ui.sound(u.f.side === 'party' ? 'hurt' : 'hit');
             if (ev.crit) {
@@ -643,6 +662,7 @@ export class Hd2dCombatView implements BattleView {
           ui.log(`${name(ev.target)} ha caído.`, u.f.side === 'party' ? 'bad' : 'good');
           if (u.f.side === 'party') ui.banner(`${name(ev.target)} ha muerto`, 'bad', 'Su nombre se pierde en la oscuridad');
           this.flash(u, u.f.side === 'party' ? 0xff2a2a : 0xffffff, 300);
+          this.wince(u, 0);
           await anim.tween(700, (k) => {
             u.pose.alpha = 1 - k;
             u.pose.dy = -k * 0.2;
@@ -658,6 +678,7 @@ export class Hd2dCombatView implements BattleView {
           ui.sound('defeat');
           ui.banner(`${name(ev.target)} cae abatido`, 'bad', 'El grupo se lo lleva a rastras');
           ui.log(`${name(ev.target)} cae abatido; el grupo se retira con él.`, 'bad');
+          this.wince(u, 0);
           await anim.tween(700, (k) => {
             u.pose.tilt = k * 1.45;
             u.pose.alpha = 1 - k * 0.3;

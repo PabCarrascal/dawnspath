@@ -1,7 +1,10 @@
 import { Px } from './pixel';
 
-/** Cuadros de animación de reposo por sprite. */
-export const FRAMES = 2;
+/** Columnas de la hoja: dos cuadros de reposo, el golpe y el dolor. */
+export const FRAMES = 4;
+export const IDLE_FRAMES = 2;
+export type Pose = 'idle' | 'attack' | 'hurt';
+export const POSE_FRAME: Record<Exclude<Pose, 'idle'>, number> = { attack: 2, hurt: 3 };
 
 const OUTLINE = 0x1a1220;
 const SKIN = [0xf2c8a0, 0xd8a078];
@@ -61,7 +64,7 @@ function face(p: Px, dy: number) {
   p.set(19, 19 + dy, 0xc88070);
 }
 
-function drawHero(p: Px, dy: number) {
+function drawHero(p: Px, dy: number, atk = false) {
   // Capa por detrás, ondeando hacia la izquierda
   for (let y = 20; y < 37; y++) {
     const w = 3 + Math.floor((y - 20) / 3);
@@ -81,6 +84,16 @@ function drawHero(p: Px, dy: number) {
   p.rect(14, 4 + dy, 4, 4, C.red[1]);
   p.rect(13, 5 + dy, 1, 2, C.red[0]);
   p.rect(17, 5 + dy, 2, 3, C.red[2]);
+  if (atk) {
+    // Estocada: el brazo estirado y la hoja en horizontal
+    shaded(p, 19, 22, 5, 3, C.blue);
+    p.rect(23, 23, 2, 2, SKIN[0]);
+    p.rect(25, 20, 1, 7, C.gold[1]);
+    p.rect(22, 23, 1, 2, C.leather[2]);
+    p.rect(26, 23, 6, 1, C.steel[0]);
+    p.rect(26, 24, 6, 1, C.steel[2]);
+    return;
+  }
   // Brazo, mano y espada en alto
   shaded(p, 19, 22 + dy, 3, 6, C.blue);
   p.rect(20, 28 + dy, 2, 2, SKIN[0]);
@@ -90,13 +103,15 @@ function drawHero(p: Px, dy: number) {
   p.rect(23, 29 + dy, 2, 3, C.leather[2]);
 }
 
-function drawSpearman(p: Px, dy: number) {
-  // Lanza por detrás del cuerpo
-  p.rect(24, 4 + dy, 1, 35 - dy, C.wood[1]);
-  p.rect(25, 4 + dy, 1, 35 - dy, C.wood[2]);
-  p.rect(24, 0 + dy, 2, 4, C.steel[0]);
-  p.set(23, 3 + dy, C.steel[1]);
-  p.set(26, 3 + dy, C.steel[2]);
+function drawSpearman(p: Px, dy: number, atk = false) {
+  if (!atk) {
+    // Lanza por detrás del cuerpo
+    p.rect(24, 4 + dy, 1, 35 - dy, C.wood[1]);
+    p.rect(25, 4 + dy, 1, 35 - dy, C.wood[2]);
+    p.rect(24, 0 + dy, 2, 4, C.steel[0]);
+    p.set(23, 3 + dy, C.steel[1]);
+    p.set(26, 3 + dy, C.steel[2]);
+  }
   legs(p, C.pants, C.boots);
   shaded(p, 11, 21 + dy, 10, 11, C.leather);
   // Peto con remaches
@@ -115,12 +130,23 @@ function drawSpearman(p: Px, dy: number) {
   // Escudo redondo en el brazo de atrás
   for (let y = -5; y <= 5; y++) for (let x = -5; x <= 5; x++) if (x * x + y * y <= 26) p.set(10 + x, 27 + dy + y, x + y < -3 ? C.red[0] : x + y > 3 ? C.red[2] : C.red[1]);
   p.set(10, 27 + dy, C.gold[0]);
+  if (atk) {
+    // Acometida: la lanza en ristre, por delante del cuerpo
+    p.rect(1, 25, 27, 1, C.wood[1]);
+    p.rect(1, 26, 27, 1, C.wood[2]);
+    p.rect(28, 24, 2, 4, C.steel[1]);
+    p.rect(30, 25, 2, 2, C.steel[0]);
+    p.set(28, 24, C.steel[0]);
+    shaded(p, 19, 23, 4, 3, C.leather);
+    p.rect(22, 25, 2, 2, SKIN[0]);
+    return;
+  }
   // Brazo y mano sobre la lanza
   shaded(p, 20, 22 + dy, 3, 6, C.leather);
   p.rect(22, 26 + dy, 3, 2, SKIN[0]);
 }
 
-function drawArcher(p: Px, dy: number) {
+function drawArcher(p: Px, dy: number, atk = false) {
   // Carcaj a la espalda con plumas
   shaded(p, 8, 17 + dy, 3, 12, C.leather);
   p.rect(8, 14 + dy, 1, 3, C.white[1]);
@@ -138,6 +164,24 @@ function drawArcher(p: Px, dy: number) {
   p.rect(14, 12 + dy, 8, 1, C.green[2]);
   // Mechón de pelo
   p.rect(14, 13 + dy, 3, 2, C.hair[1]);
+  if (atk) {
+    // Arco a plena tensión: la cuerda llega a la mejilla y la flecha apunta al frente
+    for (let y = 13; y <= 35; y++) {
+      const t = (y - 24) / 11;
+      const x = 28 - Math.round((1 - t * t) * 2);
+      p.set(x, y, C.wood[0]);
+      p.set(x + 1, y, C.wood[2]);
+    }
+    line(p, 28, 13, 20, 22, 0xe8e0d0);
+    line(p, 20, 22, 28, 35, 0xe8e0d0);
+    p.rect(18, 22, 13, 1, C.wood[1]);
+    p.rect(30, 21, 2, 3, C.steel[0]);
+    p.rect(17, 21, 2, 1, C.white[0]);
+    p.rect(17, 23, 2, 1, C.white[0]);
+    shaded(p, 19, 21, 3, 3, C.green);
+    p.rect(26, 22, 2, 2, SKIN[0]);
+    return;
+  }
   // Arco tensado delante
   for (let y = 13; y <= 35; y++) {
     const t = (y - 24) / 11;
@@ -150,7 +194,7 @@ function drawArcher(p: Px, dy: number) {
   p.rect(21, 25 + dy, 2, 2, SKIN[0]);
 }
 
-function drawChaplain(p: Px, dy: number) {
+function drawChaplain(p: Px, dy: number, atk = false) {
   // Túnica larga hasta los pies
   for (let y = 20; y < 39; y++) {
     const spread = Math.floor((y - 20) / 4);
@@ -165,6 +209,16 @@ function drawChaplain(p: Px, dy: number) {
   p.rect(10, 13 + dy, 3, 10, C.white[1]);
   p.rect(10, 13 + dy, 1, 10, C.white[0]);
   p.rect(13, 12 + dy, 9, 1, C.gold[1]);
+  if (atk) {
+    // El farol en alto, como una bendición
+    shaded(p, 19, 13, 3, 9, C.white);
+    p.rect(20, 11, 2, 2, SKIN[0]);
+    p.rect(21, 8, 1, 3, 0x3a3a44);
+    shaded(p, 19, 1, 5, 7, [0xffffe0, 0xfff070, 0xe8b030]);
+    p.rect(19, 1, 5, 1, 0x3a3a44);
+    p.rect(19, 7, 5, 1, 0x3a3a44);
+    return;
+  }
   // Farol en la mano
   shaded(p, 19, 22 + dy, 3, 5, C.white);
   p.rect(21, 26 + dy, 2, 2, SKIN[0]);
@@ -174,7 +228,7 @@ function drawChaplain(p: Px, dy: number) {
   p.rect(22, 33 + dy, 4, 1, 0x3a3a44);
 }
 
-function drawShade(p: Px, dy: number) {
+function drawShade(p: Px, dy: number, atk = false) {
   // Silueta de humo con ojos rojos; flota, así que todo sube y baja
   const body = [0x3a2a4a, 0x241a30, 0x140e1c];
   for (let y = 8; y < 38; y++) {
@@ -188,6 +242,14 @@ function drawShade(p: Px, dy: number) {
   p.rect(20, 15 + dy, 2, 2, 0xff3a4a);
   p.set(17, 15 + dy, 0xffc0c0);
   p.set(20, 15 + dy, 0xffc0c0);
+  if (atk) {
+    // Zarpas de humo que se alargan hacia la presa
+    for (const [y0, y1] of [[20, 17], [24, 25], [28, 31]]) {
+      line(p, 21, y0, 30, y1, body[1], 2);
+      p.set(31, y1, 0xff5a6a);
+    }
+    p.rect(16, 14, 7, 1, 0xff3a4a);
+  }
 }
 
 /** Elipse rellena con luz arriba a la izquierda y sombra abajo a la derecha. */
@@ -211,7 +273,7 @@ function line(p: Px, x0: number, y0: number, x1: number, y1: number, color: numb
   }
 }
 
-function drawBrute(p: Px, dy: number) {
+function drawBrute(p: Px, dy: number, atk = false) {
   const hide = [0x6a4a5a, 0x4a3040, 0x2e1c28];
   // Patas cortas y gruesas
   shaded(p, 15, 37, 6, 10, hide);
@@ -230,6 +292,16 @@ function drawBrute(p: Px, dy: number) {
   p.set(35, 15 + dy, 0xffe0a0);
   p.rect(36, 19 + dy, 5, 1, 0x1e1218);
   p.set(37, 20 + dy, 0xe8dcc0);
+  if (atk) {
+    // Garrotazo: el brazo baja y el garrote golpea por delante
+    shaded(p, 31, 27, 9, 5, hide);
+    line(p, 39, 28, 45, 41, C.wood[1], 3);
+    line(p, 40, 28, 46, 41, C.wood[2], 1);
+    blob(p, 45, 42, 3, 3, C.wood);
+    for (const [x, y] of [[42, 42], [47, 40], [44, 45], [47, 44]]) p.set(x, y, 0xe8dcc0);
+    p.rect(38, 28, 4, 3, hide[0]);
+    return;
+  }
   // Brazo y garrote con púas
   shaded(p, 33, 22 + dy, 5, 11, hide);
   line(p, 38, 33 + dy, 44, 8 + dy, C.wood[1], 3);
@@ -239,7 +311,7 @@ function drawBrute(p: Px, dy: number) {
   p.rect(36, 31 + dy, 4, 3, hide[0]);
 }
 
-function drawStalker(p: Px, dy: number) {
+function drawStalker(p: Px, dy: number, atk = false) {
   const shell = [0x6a3a8a, 0x4a2464, 0x2a123c];
   const leg = 0x1e1028;
   // Patas articuladas: alternan al respirar
@@ -248,10 +320,19 @@ function drawStalker(p: Px, dy: number) {
     line(p, hx, 18, kx, 10 + dy, leg, 2);
     line(p, kx, 10 + dy, fx, 33, leg, 2);
   }
-  // Aguijón curvado hacia arriba por detrás
-  line(p, 9, 16 + dy, 4, 8 + dy, shell[1], 2);
-  line(p, 4, 8 + dy, 6, 3 + dy, shell[2], 2);
-  p.set(7, 2 + dy, 0xc080ff);
+  if (atk) {
+    // El aguijón pasa por encima del lomo y pica por delante
+    line(p, 9, 16, 12, 4, shell[1], 2);
+    line(p, 12, 4, 30, 1, shell[1], 2);
+    line(p, 30, 1, 40, 8, shell[2], 2);
+    p.set(42, 10, 0xc080ff);
+    p.set(41, 9, 0xc080ff);
+  } else {
+    // Aguijón curvado hacia arriba por detrás
+    line(p, 9, 16 + dy, 4, 8 + dy, shell[1], 2);
+    line(p, 4, 8 + dy, 6, 3 + dy, shell[2], 2);
+    p.set(7, 2 + dy, 0xc080ff);
+  }
   blob(p, 18, 17 + dy, 10, 6, shell);
   blob(p, 31, 15 + dy, 6, 5, shell);
   // Ojos en racimo
@@ -260,16 +341,27 @@ function drawStalker(p: Px, dy: number) {
   line(p, 36, 18 + dy, 40, 20 + dy, 0xa08cc0, 1);
 }
 
-function drawHerald(p: Px, dy: number) {
+function drawHerald(p: Px, dy: number, atk = false) {
   const robe = [0x3a2a4e, 0x241a34, 0x140e1e];
-  // Guadaña detrás: asta y hoja curva
-  line(p, 33, 12 + dy, 33, 57, C.wood[2], 2);
-  for (let i = 0; i < 14; i++) {
-    const t = i / 13;
-    const x = Math.round(34 + t * 9);
-    const y = Math.round(12 + dy - Math.sin(t * Math.PI) * 6 + t * 7);
-    p.rect(x, y, 2, 2, t > 0.8 ? 0xe8ecf4 : 0xb8bcc8);
-    p.set(x, y + 2, 0x6a7080);
+  if (atk) {
+    // Tajo: la guadaña cae en diagonal y la hoja barre por delante, abajo
+    line(p, 24, 16, 38, 50, C.wood[2], 2);
+    for (let i = 0; i < 14; i++) {
+      const t = i / 13;
+      const x = Math.round(38 + Math.sin(t * Math.PI) * 4 - t * 2);
+      const y = Math.round(50 - t * 16);
+      p.rect(x + 2, y, 2, 2, t > 0.8 ? 0xe8ecf4 : 0xb8bcc8);
+    }
+  } else {
+    // Guadaña detrás: asta y hoja curva
+    line(p, 33, 12 + dy, 33, 57, C.wood[2], 2);
+    for (let i = 0; i < 14; i++) {
+      const t = i / 13;
+      const x = Math.round(34 + t * 9);
+      const y = Math.round(12 + dy - Math.sin(t * Math.PI) * 6 + t * 7);
+      p.rect(x, y, 2, 2, t > 0.8 ? 0xe8ecf4 : 0xb8bcc8);
+      p.set(x, y + 2, 0x6a7080);
+    }
   }
   // Túnica larga y deshilachada
   for (let y = 18; y < 58; y++) {
@@ -290,11 +382,16 @@ function drawHerald(p: Px, dy: number) {
   p.rect(20, 18 + dy, 5, 1, 0x14101c);
   for (let k = 0; k < 5; k++) line(p, 15 + k * 3, 7 + dy, 14 + k * 3 + (k - 2), 0 + dy + Math.abs(k - 2), 0x2a2034, 2);
   // Brazo huesudo sobre el asta
-  line(p, 26, 24 + dy, 32, 28 + dy, robe[1], 3);
-  p.rect(31, 27 + dy, 3, 3, 0xd8d0bc);
+  if (atk) {
+    line(p, 24, 24, 29, 26, robe[1], 3);
+    p.rect(29, 25, 3, 3, 0xd8d0bc);
+  } else {
+    line(p, 26, 24 + dy, 32, 28 + dy, robe[1], 3);
+    p.rect(31, 27 + dy, 3, 3, 0xd8d0bc);
+  }
 }
 
-const DRAW: Record<SpriteKind, (p: Px, dy: number) => void> = {
+const DRAW: Record<SpriteKind, (p: Px, dy: number, atk: boolean) => void> = {
   hero: drawHero,
   spearman: drawSpearman,
   archer: drawArcher,
@@ -305,13 +402,31 @@ const DRAW: Record<SpriteKind, (p: Px, dy: number) => void> = {
   herald: drawHerald,
 };
 
-/** Hoja de sprites de un personaje: cuadros de reposo en fila, con contorno. */
+/**
+ * Inclina el cuadro: las filas de arriba se desplazan `lean` píxeles (positivo
+ * hacia delante). Sirve para cargar el peso en el golpe o encogerse al recibirlo.
+ */
+function leaned(src: Px, lean: number): Px {
+  const out = new Px(src.w, src.h);
+  for (let y = 0; y < src.h; y++) {
+    const dx = Math.round(lean * (1 - y / (src.h - 1)));
+    for (let x = 0; x < src.w; x++) {
+      const a = src.alphaAt(x, y);
+      if (a) out.set(x + dx, y, src.colorAt(x, y), a);
+    }
+  }
+  return out;
+}
+
+/** Hoja de sprites de un personaje: dos cuadros de reposo, el golpe y el dolor, con contorno. */
 export function spriteSheet(kind: SpriteKind): Px {
   const [w, h] = SPRITE_SIZE[kind];
   const sheet = new Px(w * FRAMES, h);
   for (let f = 0; f < FRAMES; f++) {
-    const frame = new Px(w, h);
-    DRAW[kind](frame, f);
+    let frame = new Px(w, h);
+    DRAW[kind](frame, f === 1 ? 1 : 0, f === POSE_FRAME.attack);
+    if (f === POSE_FRAME.attack) frame = leaned(frame, 2);
+    else if (f === POSE_FRAME.hurt) frame = leaned(frame, -3);
     frame.outline(OUTLINE);
     sheet.blit(frame, f * w, 0);
   }
