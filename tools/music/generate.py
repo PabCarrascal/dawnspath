@@ -24,6 +24,9 @@ from scipy.io import wavfile
 from transformers import AutoProcessor, MusicgenForConditionalGeneration
 
 MODEL = os.environ.get("MUSICGEN", "facebook/musicgen-medium")
+# En la rama principal los pesos solo están en .bin; Hugging Face publica la
+# conversión a safetensors en esta otra rama (los mismos pesos, 7,5 GB).
+WEIGHTS_REVISION = os.environ.get("MUSICGEN_REVISION", "refs/pr/10")
 OUT = os.path.join(os.path.dirname(__file__), "..", "..", "public", "music")
 
 # nombre: (descripción, segundos, semilla)
@@ -138,8 +141,9 @@ def main():
     dev = device()
     print(f"Cargando {MODEL} en {dev}…", flush=True)
     processor = AutoProcessor.from_pretrained(MODEL)
-    # Solo los pesos en safetensors: sin esto, transformers baja también el .bin (otros 7,5 GB).
-    model = MusicgenForConditionalGeneration.from_pretrained(MODEL, use_safetensors=True).to(dev)
+    # Solo los pesos en safetensors: desde la rama principal, transformers baja
+    # el .bin y además la conversión a safetensors (dos veces 7,5 GB).
+    model = MusicgenForConditionalGeneration.from_pretrained(MODEL, revision=WEIGHTS_REVISION, use_safetensors=True).to(dev)
     os.makedirs(OUT, exist_ok=True)
     for name in names:
         text, seconds, seed = TRACKS[name]
