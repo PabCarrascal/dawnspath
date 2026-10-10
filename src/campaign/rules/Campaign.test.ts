@@ -391,6 +391,68 @@ describe('campaña: retaguardia', () => {
   });
 });
 
+describe('campaña: centinelas y relevos', () => {
+  it('un centinela pagado asegura el nodo sin restar al grupo', () => {
+    const c = departed();
+    c.move('prado');
+    winPending(c);
+    expect(c.post().ok).toBe(false); // sin campamento
+    c.build('camp');
+    c.state.exp!.bag.gold = 30;
+    const party = c.state.exp!.party.length;
+    expect(c.post().ok).toBe(true);
+    expect(c.state.exp!.bag.gold).toBe(30 - CBAL.sentinel.cost);
+    expect(c.state.exp!.party.length).toBe(party);
+    expect(c.status('prado')).toBe('secured');
+    expect(c.exposed().has('prado')).toBe(false);
+    expect(c.post().ok).toBe(false); // el campamento solo admite uno
+  });
+
+  it('si cae el puesto, los centinelas caen con él', () => {
+    const c = new Campaign(1);
+    hold(c, 'bosque');
+    c.node('bosque').structure = 'camp';
+    c.node('bosque').sentinels = 1;
+    expect(c.frontline('bosque')).toBe(true);
+    // Ataque seguro y defensa mínima: el puesto cae.
+    const attack = (c as unknown as { nightAttack: (id: string, extra: number, force: boolean) => unknown }).nightAttack;
+    attack.call(c, 'bosque', 50, true);
+    expect(c.node('bosque').sentinels).toBe(0);
+    expect(c.node('bosque').foes.length).toBeGreaterThan(0);
+  });
+
+  it('relevar cambia a un soldado del grupo por el de guardia sin gastar horas', () => {
+    const c = departed();
+    c.move('prado');
+    winPending(c);
+    c.build('camp');
+    const [, spear, archer] = c.state.soldiers;
+    expect(c.garrison(spear.id).ok).toBe(true);
+    const hours = c.state.exp!.hours;
+    expect(c.relieve(spear.id, c.hero.id).ok).toBe(false);
+    expect(c.relieve(spear.id, archer.id).ok).toBe(true);
+    expect(c.node('prado').garrison).toEqual([archer.id]);
+    expect(c.state.exp!.party).toContain(spear.id);
+    expect(c.soldier(archer.id)!.where).toBe('garrison');
+    expect(c.state.exp!.hours).toBe(hours);
+  });
+
+  it('la guardia descansa las noches tranquilas', () => {
+    const c = new Campaign(1);
+    const [, spear, archer] = c.state.soldiers;
+    hold(c, 'prado');
+    hold(c, 'robledal', archer.id);
+    hold(c, 'bosque', spear.id);
+    hold(c, 'ruinas', c.hero.id);
+    const s = c.soldier(archer.id)!;
+    s.hp = 5;
+    s.stress = 40;
+    night(c);
+    expect(s.hp).toBe(5 + Math.round(c.maxHp(s) * CBAL.guardRest.heal));
+    expect(s.stress).toBe(40 + CBAL.guardRest.stress);
+  });
+});
+
 describe('campaña: aldeas, ermitas y sucesos', () => {
   it('la aldea vende víveres, da cobijo y ofrece un recluta', () => {
     const c = departed();

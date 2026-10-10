@@ -237,7 +237,7 @@ export class MapView {
       if (ns.dark) fog += `<ellipse class="dark" cx="${n.x}" cy="${n.y}" rx="86" ry="62" />`;
       const front = frontier.includes(n.id) ? `<circle class="frontier" cx="${n.x}" cy="${n.y}" r="40" />` : '';
       const struct = ns.structure ? `<text class="struct" x="${n.x + 30}" y="${n.y - 18}">${ns.structure === 'tower' ? '♜' : '△'}</text>` : '';
-      const guards = ns.garrison.length ? `<text class="guards" x="${n.x + 30}" y="${n.y + 2}">${'⚑'.repeat(ns.garrison.length)}</text>` : '';
+      const guards = c.guards(n.id) ? `<text class="guards" x="${n.x + 30}" y="${n.y + 2}">${'⚑'.repeat(c.guards(n.id))}</text>` : '';
       // Retaguardia: un resplandor cálido y un escudo pequeño.
       const safe = st === 'cleared' && c.shielded(n.id, exposed);
       const glow = safe ? `<circle class="safe" cx="${n.x}" cy="${n.y}" r="44" />` : '';
@@ -284,7 +284,10 @@ export class MapView {
     if (ns.destroyed) lines.push('<p class="good">Foco destruido: la oscuridad ya no nace aquí.</p>');
     if (def.village && !ns.foes.length) lines.push(`<p class="good">Aldea: víveres a ${c.villagePrice(id)} de oro, cobijo para dormir${ns.uses ? '' : ` y ${def.village.name} dispuesto a unirse`}.</p>`);
     if (def.type === 'shrine' && !ns.foes.length && st !== 'unknown') lines.push(`<p class="good">Ermita: ${ns.uses ? `quedan ${ns.uses} rezos` : 'la llama se ha apagado'}.</p>`);
-    if (ns.structure) lines.push(`<p>${STRUCTURES[ns.structure].name}${ns.garrison.length ? ` · ${ns.garrison.length} de guardia: ${ns.garrison.map((g) => c.soldier(g)?.name).join(', ')}` : ' · sin guardia'}</p>`);
+    if (ns.structure) {
+      const who = [...ns.garrison.map((g) => c.soldier(g)?.name), ...(ns.sentinels ? [ns.sentinels === 1 ? 'un centinela' : `${ns.sentinels} centinelas`] : [])];
+      lines.push(`<p>${STRUCTURES[ns.structure].name} · ${who.length ? `de guardia: ${who.join(', ')}` : 'sin guardia'}</p>`);
+    }
     if (st === 'cleared' && c.shielded(id)) lines.push('<p class="good">Retaguardia: a salvo.</p>');
     else if (st === 'cleared' && id !== 'castle' && def.type !== 'village') lines.push('<p class="warn">Sin guardia: pueden retomarlo.</p>');
     if (st === 'secured') lines.push('<p class="good">Asegurado: se cruza en 1 hora y sin riesgo.</p>');

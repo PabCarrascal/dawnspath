@@ -514,7 +514,7 @@ function nodeScene(mode: Mode) {
   const def = NODE[e.node];
   const n = c.node(e.node);
   const loot = !n.foes.length && !n.looted && Object.keys(def.loot).length > 0 && def.id !== 'castle';
-  const key = JSON.stringify([e.node, e.party, n.garrison, n.structure, loot]);
+  const key = JSON.stringify([e.node, e.party, n.garrison, n.sentinels ?? 0, n.structure, loot]);
   // Si solo cambia la hora (al caer la noche), se reutiliza la maqueta y la luz cambia suavemente.
   if (scene && sceneKey === key) {
     scene.setMode(mode);
@@ -526,7 +526,8 @@ function nodeScene(mode: Mode) {
     framing: def.id === 'castle' ? 'castle' : 'node',
     scene: {
       party: c.party.map((x) => x.kind),
-      garrison: n.garrison.map((id) => c.soldier(id)!.kind),
+      // Los centinelas pagados se ven como lanceros de la milicia.
+      garrison: [...n.garrison.map((id) => c.soldier(id)!.kind), ...Array<'spearman'>(n.sentinels ?? 0).fill('spearman')],
       structure: n.structure,
       loot,
       fire: !!n.structure || mode === 'night',
@@ -574,8 +575,11 @@ function showNode(mode: Mode = timeOfDay()) {
   if (shrine && n.uses > 0) actions.push(`<button data-act="pray" title="Cura, baja el estrés y quita las aflicciones de todo el grupo.">Rezar · ${CBAL.pray.hours} h</button>`);
   if (!atCastle && !n.structure && !village) actions.push(`<button data-act="camp-build" title="${STRUCTURES.camp.desc}">Campamento · ${costHtml(camp.res)} · ${camp.hours} h</button>`);
   if (!atCastle && n.structure !== 'tower' && c.state.buildings.lodge >= 1) actions.push(`<button data-act="tower-build" title="${STRUCTURES.tower.desc}">Torre · ${costHtml(tower.res)} · ${tower.hours} h</button>`);
-  if (n.structure && n.garrison.length < cap && e.party.length > 1) actions.push(`<button data-act="guard">Dejar de guardia…</button>`);
-  for (const id of n.garrison) actions.push(`<button data-recall="${id}">Recoger a ${c.soldier(id)!.name}</button>`);
+  const room = n.structure && c.guards(e.node) < cap;
+  if (room && !n.foes.length) actions.push(`<button data-act="post" title="Hace guardia sin restar al grupo.">Centinela · ${amount('gold', CBAL.sentinel.cost)}</button>`);
+  if (room && e.party.length > 1) actions.push(`<button data-act="guard">Dejar de guardia…</button>`);
+  // Cada soldado de guardia: relevarlo por alguien del grupo o recogerlo si hay sitio.
+  for (const id of n.garrison) actions.push(`<button data-relieve="${id}">${e.party.length < CBAL.partyMax ? 'Recoger o relevar' : 'Relevar'} a ${c.soldier(id)!.name}…</button>`);
   if (!atCastle) actions.push(`<button class="night" data-act="sleep" title="${rough ? 'Al raso: no cura, sube el estrés, se come más y mañana hay menos luz.' : 'A cubierto: cura algo y baja el estrés.'}${n.dark ? ' En la oscuridad la noche pesa más y las emboscadas son más probables.' : ''}">Acampar${rough ? ' al raso' : ''} · ${amount('food', need)}</button>`);
 
   const hoursPct = (e.hours / e.maxHours) * 100;
@@ -616,7 +620,25 @@ function showNode(mode: Mode = timeOfDay()) {
   on('[data-act="hire"]', () => act(c.hire(), 'levelUp') && showNode());
   on('[data-act="pray"]', () => act(c.pray(), 'heal') && showNode());
   on('[data-act="sleep"]', () => sleep());
-  for (const el of ui.querySelectorAll<HTMLButtonElement>('[data-recall]')) el.addEventListener('click', () => act(c.recall(el.dataset.recall!)) && showNode());
+  on('[data-act="post"]', () => act(c.post(), 'build') && showNode());
+  for (const el of ui.querySelectorAll<HTMLButtonElement>('[data-relieve]')) el.addEventListener('click', () => chooseRelief(el.dataset.relieve!));
+}
+
+/** Relevo de un soldado de guardia: alguien del grupo ocupa su puesto (o se recoge sin relevo si cabe). */
+function chooseRelief(guardId: string) {
+  const c = campaign;
+  const g = c.soldier(guardId)!;
+  const options = c.party.filter((s) => s.kind !== 'hero');
+  const room = c.state.exp!.party.length < CBAL.partyMax;
+  const m = modal(
+    `<h2>Relevar a ${g.name}</h2>
+    <div class="cp-bench">${options.map((s) => `<button class="cp-bench-card" data-swap="${s.id}"><img class="cp-portrait" src="${portrait(s.kind)}" alt="">${s.name}<small>vida ${s.hp}/${c.maxHp(s)} · estrés ${s.stress}</small></button>`).join('')}</div>
+    <div class="cp-buttons">${room ? `<button data-act="recall">Recoger sin relevo</button>` : ''}<button data-act="close">Cancelar</button></div>`,
+    'narrow',
+  );
+  $('[data-act="close"]', m).addEventListener('click', closeModal);
+  $('[data-act="recall"]', m)?.addEventListener('click', () => act(c.recall(guardId)) && showNode());
+  for (const el of m.querySelectorAll<HTMLButtonElement>('[data-swap]')) el.addEventListener('click', () => act(c.relieve(guardId, el.dataset.swap!)) && showNode());
 }
 
 function chooseGuard() {

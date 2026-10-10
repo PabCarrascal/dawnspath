@@ -131,7 +131,13 @@ export class Campaign {
     if (id === 'castle') return 'castle';
     if (!n.seen) return 'unknown';
     if (n.foes.length) return n.everCleared ? 'lost' : 'hostile';
-    return n.structure && n.garrison.length ? 'secured' : 'cleared';
+    return n.structure && this.guards(id) ? 'secured' : 'cleared';
+  }
+
+  /** Guardias de un nodo: soldados y centinelas. */
+  guards(id: string) {
+    const n = this.node(id);
+    return n.garrison.length + (n.sentinels ?? 0);
   }
 
   /**
@@ -144,7 +150,7 @@ export class Campaign {
     const queue = MAP.filter((d) => this.node(d.id).foes.length > 0 || this.node(d.id).dark).map((d) => d.id);
     while (queue.length) {
       const id = queue.pop()!;
-      if (reached.has(id) || id === 'castle' || this.node(id).garrison.length) continue;
+      if (reached.has(id) || id === 'castle' || this.guards(id)) continue;
       reached.add(id);
       queue.push(...NODE[id].links);
     }
@@ -153,12 +159,12 @@ export class Campaign {
 
   /** Retaguardia: nodos limpios que ningún camino de las criaturas alcanza sin pasar por una guardia. */
   shielded(id: string, exposed = this.exposed()) {
-    return id !== 'castle' && !exposed.has(id) && !this.node(id).garrison.length && !this.node(id).foes.length;
+    return id !== 'castle' && !exposed.has(id) && !this.guards(id) && !this.node(id).foes.length;
   }
 
   /** Guarnición en primera línea: linda con algún nodo expuesto. */
   frontline(id: string, exposed = this.exposed()) {
-    return this.node(id).garrison.length > 0 && NODE[id].links.some((l) => exposed.has(l));
+    return this.guards(id) > 0 && NODE[id].links.some((l) => exposed.has(l));
   }
 
   /** Duerme a cubierto: campamento, torre o una aldea libre. */
@@ -637,7 +643,7 @@ export class Campaign {
     if (!s || s.where !== 'party') return fail('No está en el grupo.');
     if (s.kind === 'hero') return fail('El héroe no se queda atrás.');
     if (!n.structure) return fail('Hace falta un campamento o una torre.');
-    if (n.garrison.length >= STRUCTURES[n.structure].garrison) return fail('No cabe nadie más de guardia.');
+    if (this.guards(e.node) >= STRUCTURES[n.structure].garrison) return fail('No cabe nadie más de guardia.');
     if (e.party.length <= 1) return fail('El grupo no puede quedarse vacío.');
     e.party = e.party.filter((x) => x !== id);
     n.garrison.push(id);
@@ -645,6 +651,43 @@ export class Campaign {
     s.post = e.node;
     this.sync();
     return { ok: true, log: [{ text: `${s.name} queda de guardia en ${NODE[e.node].name}.`, tone: 'info' }] };
+  }
+
+  /** Paga a un centinela para que haga guardia: asegura el nodo sin restar al grupo. */
+  post(): ActionResult {
+    const err = this.onRoad();
+    if (err) return fail(err);
+    const e = this.state.exp!;
+    const n = this.node(e.node);
+    if (!n.structure) return fail('Hace falta un campamento o una torre.');
+    if (n.foes.length) return fail('Antes hay que limpiar el nodo.');
+    if (this.guards(e.node) >= STRUCTURES[n.structure].garrison) return fail('No cabe nadie más de guardia.');
+    if (e.bag.gold < CBAL.sentinel.cost) return fail(`Hacen falta ${CBAL.sentinel.cost} de oro.`);
+    e.bag.gold -= CBAL.sentinel.cost;
+    n.sentinels = (n.sentinels ?? 0) + 1;
+    this.sync();
+    return { ok: true, log: [{ text: `Un centinela queda de guardia en ${NODE[e.node].name}.`, tone: 'info' }] };
+  }
+
+  /** Relevo: un soldado del grupo ocupa el puesto de uno de guardia, que vuelve al grupo. Sin gastar horas. */
+  relieve(guardId: string, partyId: string): ActionResult {
+    const err = this.onRoad();
+    if (err) return fail(err);
+    const e = this.state.exp!;
+    const n = this.node(e.node);
+    const g = this.soldier(guardId);
+    const s = this.soldier(partyId);
+    if (!g || !n.garrison.includes(guardId)) return fail('No está de guardia aquí.');
+    if (!s || s.where !== 'party') return fail('No está en el grupo.');
+    if (s.kind === 'hero') return fail('El héroe no se queda atrás.');
+    n.garrison = n.garrison.map((x) => (x === guardId ? partyId : x));
+    e.party = e.party.map((x) => (x === partyId ? guardId : x));
+    g.where = 'party';
+    g.post = undefined;
+    s.where = 'garrison';
+    s.post = e.node;
+    this.sync();
+    return { ok: true, log: [{ text: `${s.name} releva a ${g.name}.`, tone: 'info' }] };
   }
 
   recall(id: string): ActionResult {
@@ -919,9 +962,9 @@ export class Campaign {
     const covered: string[] = [];
     for (const id of this.darkFrontier()) {
       const n = this.node(id);
-      if (n.garrison.length && n.structure) {
+      if (this.guards(id) && n.structure) {
         const lines = this.nightAttack(id, CBAL.darkAttack, true);
-        if (n.garrison.length) {
+        if (this.guards(id)) {
           log.push({ text: `La guarnición de ${NODE[id].name} contiene a la oscuridad.`, tone: 'good' });
           continue;
         }
@@ -942,13 +985,18 @@ export class Campaign {
     const log: LogLine[] = [];
     // Se calcula una vez: lo que cae esta noche no abre camino hasta la siguiente.
     const exposed = this.exposed();
+    const attacked = new Set<string>();
     for (const def of MAP) {
       if (def.id === 'castle' || def.id === except) continue;
       const n = this.node(def.id);
       if (n.foes.length || !n.everCleared) continue;
       // Solo se ataca a la primera línea; tras ella, la retaguardia está a salvo.
-      if (n.garrison.length) {
-        if (this.frontline(def.id, exposed)) log.push(...this.nightAttack(def.id, CBAL.front.extra, false, CBAL.front.attack));
+      if (this.guards(def.id)) {
+        if (this.frontline(def.id, exposed)) {
+          const lines = this.nightAttack(def.id, CBAL.front.extra, false, CBAL.front.attack);
+          if (lines.length) attacked.add(def.id);
+          log.push(...lines);
+        }
       } else if (exposed.has(def.id) && (n.dark || !def.links.includes('castle')) && this.rng.chance(n.dark ? CBAL.retake * 2 : CBAL.retake)) {
         n.foes = [...def.regen];
         const burnt = n.structure;
@@ -956,7 +1004,20 @@ export class Campaign {
         log.push({ text: `Las criaturas retoman ${def.name}${burnt ? ` y arrasan ${burnt === 'camp' ? 'el campamento' : 'la torre'}` : ''}.`, tone: 'bad' });
       }
     }
+    this.restGuards(attacked);
     return log;
+  }
+
+  /** Los soldados de guardia que pasan la noche tranquilos se curan algo y bajan el estrés. */
+  private restGuards(attacked: Set<string>) {
+    for (const def of MAP) {
+      if (attacked.has(def.id)) continue;
+      for (const id of this.node(def.id).garrison) {
+        const s = this.soldier(id)!;
+        s.hp = Math.min(this.maxHp(s), s.hp + Math.round(this.maxHp(s) * CBAL.guardRest.heal));
+        s.stress = clamp(s.stress + CBAL.guardRest.stress, 0, 200);
+      }
+    }
   }
 
   /** Ataque nocturno a una guarnición, resuelto sin escena. */
@@ -966,7 +1027,7 @@ export class Campaign {
     if (!force && !this.rng.chance((n.dark ? CBAL.garrisonAttack * 1.5 : CBAL.garrisonAttack) * chanceMult)) return [];
     const guards = n.garrison.map((g) => this.soldier(g)!);
     const structure = n.structure ? STRUCTURES[n.structure].defense + (n.structure === 'tower' && this.state.buildings.lodge >= 3 ? 0.5 : 0) : 0;
-    const defense = structure + guards.reduce((a, s) => a + (1 + this.level(s) * 0.25) * (0.5 + (0.5 * s.hp) / this.maxHp(s)) * (s.affliction ? 0.7 : 1), 0);
+    const defense = structure + (n.sentinels ?? 0) * CBAL.sentinel.defense + guards.reduce((a, s) => a + (1 + this.level(s) * 0.25) * (0.5 + (0.5 * s.hp) / this.maxHp(s)) * (s.affliction ? 0.7 : 1), 0);
     const attack = this.rng.range(0.8, 2.6) + this.state.day * 0.08 + extra;
     if (defense >= attack) {
       const soft = n.structure === 'tower' ? 0.5 : 1;
@@ -989,7 +1050,9 @@ export class Campaign {
         lines.push({ text: `${s.name} huyó malherido hacia el castillo.`, tone: 'bad' });
       }
     }
+    if (n.sentinels) lines.push({ text: n.sentinels === 1 ? 'El centinela cae en su puesto.' : 'Los centinelas caen en su puesto.', tone: 'bad' });
     n.garrison = [];
+    n.sentinels = 0;
     n.foes = [...def.regen];
     n.structure = null;
     return lines;

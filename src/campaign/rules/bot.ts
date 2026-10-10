@@ -148,11 +148,20 @@ function roadTurn(c: Campaign, style: BotStyle) {
   if (!goHome && !here.foes.length && !here.looted && Object.keys(def.loot).length && e.hours >= CBAL.lootHours) {
     if (c.loot().ok) return;
   }
-  // Frente: de vuelta al castillo, deja de guardia a alguien sano en un nodo que linda con criaturas.
+  // Frente: en un nodo que linda con criaturas, un centinela pagado (no resta al grupo)…
   const borders = def.links.some((l) => c.node(l).foes.length > 0 || c.node(l).dark);
-  if (style.guards && goHome && borders && !here.foes.length && !here.garrison.length && !def.village && e.node !== 'castle' && party.length >= 3) {
+  const open = style.guards && borders && !here.foes.length && !c.guards(e.node) && !def.village && e.node !== 'castle';
+  if (open && e.bag.gold >= CBAL.sentinel.cost + 10 && (here.structure || c.build('camp').ok) && c.post().ok) return;
+  // …o, de vuelta al castillo, alguien sano del grupo.
+  if (open && goHome && party.length >= 3) {
     const guard = party.filter((x) => x.kind !== 'hero' && !weak(c, x) && x.hp >= c.maxHp(x) * 0.7).sort((a, b) => b.hp - a.hp)[0];
     if (guard && (here.structure || c.build('camp').ok) && c.garrison(guard.id).ok) return;
+  }
+  // Relevo: un herido del grupo se queda descansando de guardia y vuelve el que estaba.
+  if (style.guards && here.garrison.length) {
+    const tired = party.find((x) => x.kind !== 'hero' && weak(c, x));
+    const fresh = here.garrison.map((id) => c.soldier(id)!).find((g) => !weak(c, g));
+    if (tired && fresh && c.relieve(fresh.id, tired.id).ok) return;
   }
   if (e.hours < c.travelCost(step)) {
     if (!c.sheltered(e.node) && e.node !== 'castle') c.build('camp');

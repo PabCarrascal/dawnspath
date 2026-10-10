@@ -71,6 +71,8 @@ export interface NodeState {
   looted: boolean;
   structure: Structure | null;
   garrison: string[];
+  /** Centinelas pagados de guardia (no son soldados del grupo). */
+  sentinels?: number;
   /** Cubierto por la oscuridad: allí siempre se pelea de noche. */
   dark: boolean;
   /** Foco destruido: ya no extiende la oscuridad. */

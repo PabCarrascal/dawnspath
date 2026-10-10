@@ -21,6 +21,10 @@ export const CBAL = {
   roadAmbush: 0.2,
   /** Probabilidad de que las criaturas retomen un nodo limpio sin guardia (los vecinos del castillo no). */
   retake: 0.2,
+  /** Centinela pagado: hace guardia sin restar al grupo. Coste en oro de la caravana y lo que aporta a la defensa. */
+  sentinel: { cost: 20, defense: 0.9 },
+  /** Los soldados de guardia descansan cada noche que no les atacan. */
+  guardRest: { heal: 0.15, stress: -6 },
   /** Guarniciones en primera línea (lindan con nodos expuestos): más ataques y más fuertes. Las de retaguardia no se atacan. */
   front: { attack: 1.4, extra: 0.4 },
   /** Probabilidad de ataque nocturno a una guarnición. */
