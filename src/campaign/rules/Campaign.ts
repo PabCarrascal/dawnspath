@@ -528,7 +528,8 @@ export class Campaign {
     if (noLight) return fail(noLight);
     for (const id of hidden) this.node(id).seen = true;
     this.sync();
-    return { ok: true, log: hidden.map((id) => ({ text: `Exploradores: ${NODE[id].name} — ${this.describeFoes(this.node(id).foes)}.`, tone: 'info' as const })) };
+    // Lo que defiende cada nodo se ve en el mapa; el aviso no lo cuenta.
+    return { ok: true, log: [{ text: 'Se han explorado los territorios cercanos.', tone: 'info' }] };
   }
 
   describeFoes(foes: string[]) {

@@ -123,7 +123,10 @@ describe('campaña: expedición', () => {
     c.move('prado');
     winPending(c);
     expect(c.status('bosque')).toBe('unknown');
-    expect(c.scout().ok).toBe(true);
+    const r = c.scout();
+    expect(r.ok).toBe(true);
+    // El aviso no cuenta qué hay: eso se ve en el mapa.
+    expect(r.ok && r.log.map((l) => l.text)).toEqual(['Se han explorado los territorios cercanos.']);
     expect(c.status('bosque')).toBe('hostile');
     expect(c.status('ruinas')).toBe('hostile');
   });
