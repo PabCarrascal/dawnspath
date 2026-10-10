@@ -34,6 +34,8 @@ npm test             # tests de las reglas (Vitest)
 npm run build        # comprobación de tipos y build de producción en dist/
 npm run sim          # un bot juega campañas enteras y resume el equilibrio
 npm run sim:combat   # la IA juega ambos bandos de cada encuentro de prueba
+npm run deploy:dry   # build y lista de lo que subiría al servidor, sin tocar nada
+npm run deploy       # build y subida de dist/ al servidor por rsync
 ```
 
 | Página | Qué es |
