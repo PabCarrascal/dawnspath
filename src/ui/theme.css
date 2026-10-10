@@ -833,3 +833,13 @@ small img.ic {
 .amt + .amt {
   margin-left: 8px;
 }
+
+/* Nombres de las fichas: letra del texto, más estrecha que la de los títulos,
+   para que los largos ("Armando Bronca Segura") quepan enteros sin cortarse. */
+.cp-soldier .cp-soldier-head b {
+  font-family: var(--serif) !important;
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
