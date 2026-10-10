@@ -2,6 +2,7 @@ import type { Application } from 'pixi.js';
 import { audio } from '../audio/Audio';
 import type { Combat } from './rules/Combat';
 import type { CombatEvent } from './rules/types';
+import { tip } from '../ui/tips';
 import { CombatUi } from './ui';
 import type { TimeOfDay } from './view/backdrop';
 import { CombatView, ViewHooks } from './view/CombatView';
@@ -123,6 +124,9 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
     ui.setPlayerTurn(true);
     ui.showActor(actor);
     refresh();
+    tip('combat', 'Elige una habilidad en la lista y pulsa al enemigo que quieras atacar.', '.cb-command');
+    if (combat.skillsOf(actor.id).some((x) => !x.usable && !x.skill.from.includes(actor.rank)))
+      tip('ranks', 'Cada habilidad solo se usa desde ciertas posiciones: las apagadas no llegan desde aquí.', '.cb-cmd:disabled');
   };
 
   const refresh = () => {

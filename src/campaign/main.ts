@@ -4,6 +4,7 @@ import '../ui/theme.css';
 import { audio, Track } from '../audio/Audio';
 import { soundSection } from '../audio/SoundControl';
 import { mountSettings, SettingsSection } from '../ui/settings';
+import { tip, tipsSection } from '../ui/tips';
 import { Combat } from '../combat/rules/Combat';
 import { startCombat } from '../combat/session';
 import { seedFromString } from '../core/rng';
@@ -323,6 +324,15 @@ function showCastle() {
   $('[data-act="memorial"]', ui)?.addEventListener('click', () => showMemorial());
 
   if (c.state.report) showReport(() => void 0);
+  tip('castle', 'Prepara una expedición: elige el grupo y compra víveres antes de salir.', '[data-act="prep"]');
+  commonTips();
+}
+
+/** Consejos que valen en el castillo y en el sendero. */
+function commonTips() {
+  const s = campaign.state;
+  if (s.darkClock === 1 && s.siege === null) tip('dark', 'Mañana avanza la oscuridad: los nodos que alcance quedarán en noche perpetua.', '.cp-dark');
+  if (s.soldiers.some((x) => x.alive && x.affliction)) tip('affliction', 'Con demasiado estrés, un soldado queda afligido; en la taberna del castillo se trata.', '.cp-soldier .affl');
 }
 
 function castleHud() {
@@ -624,6 +634,11 @@ function showNode(mode: Mode = timeOfDay()) {
   on('[data-act="pray"]', () => act(c.pray(), 'heal') && showNode());
   on('[data-act="sleep"]', () => sleep());
   on('[data-act="post"]', () => act(c.post(), 'build') && showNode());
+
+  tip('hours', 'Viajar y cada acción gastan horas de luz; cuando se acaben, toca acampar.', '.cp-hours');
+  if (e.hours <= 4 && !atCastle) tip('night', 'Al raso no se cura y sube el estrés; en un campamento o una aldea, sí.', '[data-act="sleep"]');
+  if (room) tip('guard', 'Deja un centinela o un soldado de guardia para asegurar este nodo.', () => $('[data-act="post"]', ui) ?? $('[data-act="guard"]', ui));
+  commonTips();
   for (const el of ui.querySelectorAll<HTMLButtonElement>('[data-relieve]')) el.addEventListener('click', () => chooseRelief(el.dataset.relieve!));
 }
 
@@ -762,6 +777,7 @@ function showMap() {
   });
   $('.cp-map-wrap', m).appendChild(view.el);
   $('[data-act="close"]', m).addEventListener('click', closeModal);
+  if ($('.cp-map-frame .shield', m)) tip('rear', 'El escudo marca la retaguardia: tras tus guardias, las criaturas no vuelven.', '.cp-map-frame .shield');
 }
 
 // ───────────────────────── combate ─────────────────────────
@@ -893,4 +909,4 @@ function namesSection(): SettingsSection {
 // Por si se pulsa antes de que la pantalla de carga pida el gesto.
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 window.addEventListener('keydown', () => audio.unlock(), { once: true });
-mountSettings([soundSection(), namesSection()]);
+mountSettings([soundSection(), namesSection(), tipsSection()]);
