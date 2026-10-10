@@ -8,7 +8,7 @@ import { Rng } from '../core/rng';
 import { SpriteKind, spriteSheet } from './characters';
 import { buildDiorama, Diorama } from './diorama/build';
 import { BATTLE, slot } from './diorama/grid';
-import { PixelSprite } from './sprite';
+import { PixelSprite, spriteGlow } from './sprite';
 import { LookController, Mode } from './look';
 import { Px } from './pixel';
 import { buildPost } from './post';
@@ -81,7 +81,8 @@ export class Hd2dCombatView implements BattleView {
   private camZoom = 1;
   private fit = 1;
   private readonly home: THREE.Vector3;
-  private readonly offset = new THREE.Vector3(0, 7.6, 16.5);
+  // Algo más cerca que el plano general de los nodos: los personajes se ven más grandes.
+  private readonly offset = new THREE.Vector3(0, 6.9, 14.8);
   private tint: HTMLElement;
 
   private constructor(
@@ -222,6 +223,7 @@ export class Hd2dCombatView implements BattleView {
     this.camera.aspect = w / h;
     // En pantallas estrechas, la cámara se aleja para que quepan los dos bandos.
     this.fit = Math.max(1, 1.7 / this.camera.aspect);
+    this.look?.setDistance(this.fit);
     // Desplaza el encuadre hacia arriba: abajo queda el panel de habilidades.
     this.camera.setViewOffset(w, h, 0, Math.round(h * 0.1), w, h);
     this.camera.updateProjectionMatrix();
@@ -393,7 +395,7 @@ export class Hd2dCombatView implements BattleView {
     u.mat.emissiveIntensity = 1.4;
     setTimeout(() => {
       u.mat.emissive.set(0xffffff);
-      u.mat.emissiveIntensity = 0.28;
+      u.mat.emissiveIntensity = spriteGlow();
     }, ms);
   }
 

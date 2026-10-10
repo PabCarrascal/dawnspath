@@ -26,7 +26,7 @@ export class CombatUi {
         <div class="cb-round"><span>Ronda</span><b data-id="round">1</b></div>
         <ol class="cb-order" data-id="order"></ol>
         <div class="cb-enc" data-id="enc"></div>
-        <button class="cb-log-toggle" data-id="log-toggle" title="Registro del combate (L)" aria-expanded="false" aria-controls="cb-log">☰ Registro</button>
+        <button class="cb-log-toggle" data-id="log-toggle" title="Registro del combate (L)" aria-expanded="false" aria-controls="cb-log">☰<span> Registro</span></button>
       </header>
       <div class="cb-banner" data-id="banner"><h2></h2><p></p></div>
       <ol class="cb-log" id="cb-log" data-id="log"></ol>
@@ -42,7 +42,9 @@ export class CombatUi {
       <div class="cb-tip" data-id="tip"></div>
     `;
     this.bubbles = this.q('bubbles');
-    this.q('enc').textContent = `${combat.encounter.name}${combat.state.night ? ' · de noche' : ''}`;
+    // "De noche" solo si el nombre no lo dice ya ("Emboscada nocturna").
+    const night = combat.state.night && !/noct|noche/i.test(combat.encounter.name);
+    this.q('enc').textContent = `${combat.encounter.name}${night ? ' · de noche' : ''}`;
     // El registro va plegado: lo que pasa ya se ve en la escena y en los rótulos.
     this.q('log-toggle').addEventListener('click', () => this.toggleLog());
     window.addEventListener('keydown', this.onKey);

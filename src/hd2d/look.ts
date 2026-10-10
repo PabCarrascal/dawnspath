@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Diorama } from './diorama/build';
 import type { Post } from './post';
+import { setSpriteGlow } from './sprite';
 
 export type Mode = 'day' | 'dusk' | 'night' | 'dark';
 
@@ -24,6 +25,8 @@ interface Look {
   motesOpacity: number;
   fireflies: number;
   exposure: number;
+  /** Luz propia de los personajes, para que se lean de noche. */
+  glow: number;
 }
 
 export const LOOKS: Record<Mode, Look> = {
@@ -32,28 +35,28 @@ export const LOOKS: Record<Mode, Look> = {
     sun: 0xfff0d4, sunI: 2.6, sunPos: [-10, 16, 9],
     hemiSky: 0xcfe0ff, hemiGround: 0x6a5a38, hemiI: 0.9,
     lamp: 0, fire: 1.2, bloom: 0.35, saturation: 1.2, tint: 0xfff6e8,
-    motes: 0xfff0b0, motesOpacity: 0.55, fireflies: 0, exposure: 1.05,
+    motes: 0xfff0b0, motesOpacity: 0.55, fireflies: 0, exposure: 1.05, glow: 0.28,
   },
   dusk: {
     fog: 0xe0a882, fogNear: 22, fogFar: 62,
     sun: 0xffb070, sunI: 2.4, sunPos: [-16, 7, 8],
     hemiSky: 0xffb890, hemiGround: 0x3a2a3a, hemiI: 0.6,
     lamp: 14, fire: 8, bloom: 0.6, saturation: 1.12, tint: 0xfff0e0,
-    motes: 0xffc070, motesOpacity: 0.7, fireflies: 0.3, exposure: 1.0,
+    motes: 0xffc070, motesOpacity: 0.7, fireflies: 0.3, exposure: 1.0, glow: 0.36,
   },
   night: {
     fog: 0x1c2a44, fogNear: 18, fogFar: 55,
     sun: 0x8aa8ff, sunI: 0.55, sunPos: [8, 14, -4],
     hemiSky: 0x4a5a90, hemiGround: 0x141420, hemiI: 0.6,
     lamp: 40, fire: 22, bloom: 0.9, saturation: 1.1, tint: 0xd8e0ff,
-    motes: 0x9ab8ff, motesOpacity: 0.25, fireflies: 1, exposure: 1.1,
+    motes: 0x9ab8ff, motesOpacity: 0.25, fireflies: 1, exposure: 1.1, glow: 0.55,
   },
   dark: {
     fog: 0x2e1a40, fogNear: 16, fogFar: 50,
-    sun: 0xb080ff, sunI: 0.55, sunPos: [6, 12, -6],
-    hemiSky: 0x6a3a9a, hemiGround: 0x120a18, hemiI: 0.6,
+    sun: 0xb080ff, sunI: 0.8, sunPos: [6, 12, -6],
+    hemiSky: 0x7a4aaa, hemiGround: 0x2a1a34, hemiI: 0.85,
     lamp: 12, fire: 16, bloom: 0.85, saturation: 0.85, tint: 0xe4d0ff,
-    motes: 0xc080ff, motesOpacity: 0.8, fireflies: 0, exposure: 1.15,
+    motes: 0xc080ff, motesOpacity: 0.8, fireflies: 0, exposure: 1.3, glow: 0.6,
   },
 };
 
@@ -64,6 +67,8 @@ export class LookController {
   private from: Look;
   private to: Look;
   private k = 1;
+  /** La cámara se aleja en pantallas estrechas: la niebla se aleja con ella. */
+  private distance = 1;
   mode: Mode;
 
   constructor(
@@ -77,6 +82,13 @@ export class LookController {
     this.from = LOOKS[mode];
     this.to = LOOKS[mode];
     this.apply(1);
+  }
+
+  /** Factor de distancia de la cámara respecto al encuadre normal (1 = sin alejar). */
+  setDistance(k: number) {
+    if (Math.abs(k - this.distance) < 0.01) return;
+    this.distance = k;
+    this.apply(this.k);
   }
 
   set(mode: Mode) {
@@ -112,6 +124,7 @@ export class LookController {
       motesOpacity: mix(a.motesOpacity, b.motesOpacity),
       fireflies: mix(a.fireflies, b.fireflies),
       exposure: mix(a.exposure, b.exposure),
+      glow: mix(a.glow, b.glow),
     };
   }
 
@@ -133,8 +146,8 @@ export class LookController {
     const tint = f.biome.fog;
     fog.color.set(L.fog);
     if (tint) fog.color.lerp(new THREE.Color(tint.color).multiplyScalar(this.mode === 'night' || this.mode === 'dark' ? 0.35 : 1), tint.mix);
-    fog.near = L.fogNear;
-    fog.far = L.fogFar;
+    fog.near = L.fogNear * this.distance;
+    fog.far = L.fogFar * this.distance;
     (this.scene.background as THREE.Color).copy(fog.color);
     f.sun.color.set(L.sun);
     f.sun.intensity = L.sunI;
@@ -150,5 +163,6 @@ export class LookController {
     for (const s of f.shades) s.mesh.visible = this.mode === 'dark' && this.k > 0.3;
     this.post.setGrade(L.saturation, L.tint, L.bloom);
     this.renderer.toneMappingExposure = L.exposure;
+    setSpriteGlow(L.glow);
   }
 }

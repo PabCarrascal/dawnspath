@@ -99,6 +99,7 @@ export class Stage3D {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
     this.post.setSize(w, h);
+    this.look.setDistance(Math.max(1, 1.7 / this.camera.aspect));
   };
 
   private frame = () => {

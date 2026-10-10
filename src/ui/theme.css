@@ -843,3 +843,34 @@ small img.ic {
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
+
+/* ───────────────────────── combate en pantallas estrechas ───────────────────────── */
+
+/* Una sola fila arriba: ronda, turnos (desplazables) y el botón del registro sin texto. */
+@media (max-width: 640px) {
+  .cb-top {
+    gap: 8px;
+    flex-wrap: nowrap;
+    left: 10px !important;
+  }
+  .cb-round {
+    padding: 4px 8px !important;
+  }
+  .cb-order {
+    flex-wrap: nowrap !important;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .cb-order li {
+    flex: none;
+  }
+  .cb-order li.active span,
+  .cb-enc,
+  .cb-log-toggle span {
+    display: none !important;
+  }
+  .cb-log-toggle {
+    margin-right: 54px;
+  }
+}

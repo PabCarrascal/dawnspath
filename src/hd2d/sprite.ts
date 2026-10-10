@@ -6,6 +6,20 @@ import { FRAMES, IDLE_FRAMES, Pose, POSE_FRAME } from './characters';
 /** Píxeles de sprite por unidad del mundo. */
 export const SPRITE_PPU = 22;
 
+/**
+ * Luz propia de los personajes: en HD-2D se leen bien aunque esté oscuro. Sube
+ * al caer la noche (la fija la luz de la escena) y vale para todos los sprites.
+ */
+const glowing = new Set<THREE.MeshStandardMaterial>();
+let glow = 0.28;
+
+export function setSpriteGlow(v: number) {
+  glow = v;
+  for (const m of glowing) m.emissiveIntensity = v;
+}
+
+export const spriteGlow = () => glow;
+
 /** Personaje en pixel art: un plano que siempre mira a la cámara y alterna cuadros. */
 export class PixelSprite {
   readonly mesh: THREE.Mesh;
@@ -31,7 +45,9 @@ export class PixelSprite {
     const geo = new THREE.PlaneGeometry(w, h);
     geo.translate(0, h / 2 - (1 / SPRITE_PPU) * scale, 0);
     // Algo de luz propia: en HD-2D los personajes se leen bien aunque estén a contraluz.
-    const mat = new THREE.MeshStandardMaterial({ map: this.tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 1, emissive: 0xffffff, emissiveMap: this.tex, emissiveIntensity: 0.28 });
+    const mat = new THREE.MeshStandardMaterial({ map: this.tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 1, emissive: 0xffffff, emissiveMap: this.tex, emissiveIntensity: glow });
+    glowing.add(mat);
+    mat.addEventListener('dispose', () => glowing.delete(mat));
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.castShadow = true;
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: this.tex, alphaTest: 0.5 });
