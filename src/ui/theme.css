@@ -810,3 +810,26 @@ em.affl,
 #overlay .cb-log li {
   background: transparent !important;
 }
+
+/* ───────────────────────── iconos de recursos ───────────────────────── */
+
+/* Pixel art de 12 × 12 a escala entera, sin suavizar. */
+img.ic {
+  width: 24px;
+  height: 24px;
+  margin: -4px 3px -4px 0;
+  vertical-align: middle;
+  image-rendering: pixelated;
+}
+.amt {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+button img.ic,
+small img.ic {
+  margin: -6px 2px -6px 0;
+}
+.amt + .amt {
+  margin-left: 8px;
+}

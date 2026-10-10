@@ -6,7 +6,8 @@ import { mountSoundControl } from '../audio/SoundControl';
 import { Combat } from '../combat/rules/Combat';
 import { startCombat } from '../combat/session';
 import { seedFromString } from '../core/rng';
-import { Campaign, formatRes } from './rules/Campaign';
+import { Campaign } from './rules/Campaign';
+import { amount, costHtml, icon } from '../ui/icons';
 import { BUILDINGS, CBAL, KIND_NAMES, NODE, STRUCTURES } from './rules/data';
 import { EVENT } from './rules/events';
 import type { ActionResult, BuildingId, CampaignState, LogLine, Soldier } from './rules/types';
@@ -160,7 +161,7 @@ function soldierCard(s: Soldier, extra = '') {
 }
 
 function resLine(r: { gold: number; materials: number; stone: number }) {
-  return `<span title="Oro">◉ ${r.gold}</span><span title="Materiales">▤ ${r.materials}</span><span title="Piedra">◆ ${r.stone}</span>`;
+  return `${amount('gold', r.gold)}${amount('materials', r.materials)}${amount('stone', r.stone)}`;
 }
 
 function setNight(mode: Mode) {
@@ -326,7 +327,7 @@ function castleHud() {
   return `
     <header class="cp-hud">
       <div class="cp-day"><span>Día</span><b>${c.state.day}</b></div>
-      <div class="cp-res">${resLine(c.state.stock)}<span title="Víveres">✤ ${c.state.stock.food}</span><span title="Antorchas">♨ ${c.state.stock.torches}</span></div>
+      <div class="cp-res">${resLine(c.state.stock)}${amount('food', c.state.stock.food)}${amount('torches', c.state.stock.torches)}</div>
       ${darkHud()}
       <div class="cp-where">Castillo del Alba</div>
     </header>`;
@@ -374,7 +375,7 @@ function showBuilding(b: BuildingId) {
   if (b === 'tavern') {
     const home = c.state.soldiers.filter((s) => s.alive && s.where === 'castle');
     body = `
-      <h3>Tratar · ${CBAL.treatCost} oro</h3>
+      <h3>Tratar · ${amount('gold', CBAL.treatCost)}</h3>
       <div class="cp-rows">${home
         .map(
           (s) => `<div class="cp-row"><span><b>${s.name}</b> · estrés ${s.stress}${s.affliction ? ` · <em class="affl">${s.affliction}</em>` : ''}</span>
@@ -386,7 +387,7 @@ function showBuilding(b: BuildingId) {
         c.state.recruits
           .map(
             (r, i) => `<div class="cp-row"><span><b>${r.name}</b> · ${KIND_NAMES[r.kind]}</span>
-          <button data-recruit="${i}">${r.cost ? `Reclutar · ${r.cost} oro` : 'Se ofrece gratis'}</button></div>`,
+          <button data-recruit="${i}">${r.cost ? `Reclutar · ${amount('gold', r.cost)}` : 'Se ofrece gratis'}</button></div>`,
           )
           .join('') || '<p class="dim">Nadie espera.</p>'
       }</div>`;
@@ -398,7 +399,7 @@ function showBuilding(b: BuildingId) {
     ${cost ? `<p class="dim">Siguiente: ${def.levels[lvl + 1]}</p>` : ''}
     ${body}
     <div class="cp-buttons">
-      ${cost ? `<button class="primary" data-act="up" ${c.canAfford(c.state.stock, cost) ? '' : 'disabled'}>Mejorar · ${formatRes(cost)}</button>` : '<span class="dim">Nivel máximo</span>'}
+      ${cost ? `<button class="primary" data-act="up" ${c.canAfford(c.state.stock, cost) ? '' : 'disabled'}>Mejorar · ${costHtml(cost)}</button>` : '<span class="dim">Nivel máximo</span>'}
       <button data-act="close">Cerrar</button>
     </div>`,
     '',
@@ -456,12 +457,12 @@ function showPrep(selected?: string[]) {
       </section>
       <section>
         <h3>Provisiones</h3>
-        <div class="cp-row"><span>✤ Víveres <small>${CBAL.foodPrice} oro</small></span>
+        <div class="cp-row"><span>${icon('food')} Víveres <small>${amount('gold', CBAL.foodPrice)}</small></span>
           <span class="cp-stepper"><button data-buy="food:-1">−</button><b>${st.food}</b><button data-buy="food:1">+</button></span></div>
-        <div class="cp-row"><span>♨ Antorchas <small>${CBAL.torchPrice} oro</small></span>
+        <div class="cp-row"><span>${icon('torches')} Antorchas <small>${amount('gold', CBAL.torchPrice)}</small></span>
           <span class="cp-stepper"><button data-buy="torches:-1">−</button><b>${st.torches}</b><button data-buy="torches:1">+</button></span></div>
         ${st.food < need * 3 ? `<p><button class="cp-link" data-act="supply">Completar víveres</button></p>` : ''}
-        <p class="cp-stock">◉ ${st.gold} oro</p>
+        <p class="cp-stock">${amount('gold', st.gold)}</p>
       </section>
     </div>
     <div class="cp-buttons">
@@ -564,25 +565,25 @@ function showNode(mode: Mode = timeOfDay()) {
   if (canLoot) actions.push(`<button data-act="loot">Saquear · ${CBAL.lootHours} h</button>`);
   if (village) {
     const price = c.villagePrice(e.node);
-    actions.push(`<button data-act="trade" title="Con el oro de la caravana.">Comprar 3 víveres · ${price * 3} oro</button>`);
+    actions.push(`<button data-act="trade" title="Con el oro de la caravana.">Comprar 3 ${icon('food')} · ${amount('gold', price * 3)}</button>`);
     if (!n.uses) {
       const cost = c.hireCost(e.node);
-      actions.push(`<button data-act="hire" title="${KIND_NAMES[village.recruit]}: se une al grupo.">Contratar a ${village.name} · ${cost ? `${cost} oro` : 'gratis'}</button>`);
+      actions.push(`<button data-act="hire" title="${KIND_NAMES[village.recruit]}: se une al grupo.">Contratar a ${village.name} · ${cost ? amount('gold', cost) : 'gratis'}</button>`);
     }
   }
   if (shrine && n.uses > 0) actions.push(`<button data-act="pray" title="Cura, baja el estrés y quita las aflicciones de todo el grupo.">Rezar · ${CBAL.pray.hours} h</button>`);
-  if (!atCastle && !n.structure && !village) actions.push(`<button data-act="camp-build" title="${STRUCTURES.camp.desc}">Campamento · ${formatRes(camp.res)} · ${camp.hours} h</button>`);
-  if (!atCastle && n.structure !== 'tower' && c.state.buildings.lodge >= 1) actions.push(`<button data-act="tower-build" title="${STRUCTURES.tower.desc}">Torre · ${formatRes(tower.res)} · ${tower.hours} h</button>`);
+  if (!atCastle && !n.structure && !village) actions.push(`<button data-act="camp-build" title="${STRUCTURES.camp.desc}">Campamento · ${costHtml(camp.res)} · ${camp.hours} h</button>`);
+  if (!atCastle && n.structure !== 'tower' && c.state.buildings.lodge >= 1) actions.push(`<button data-act="tower-build" title="${STRUCTURES.tower.desc}">Torre · ${costHtml(tower.res)} · ${tower.hours} h</button>`);
   if (n.structure && n.garrison.length < cap && e.party.length > 1) actions.push(`<button data-act="guard">Dejar de guardia…</button>`);
   for (const id of n.garrison) actions.push(`<button data-recall="${id}">Recoger a ${c.soldier(id)!.name}</button>`);
-  if (!atCastle) actions.push(`<button class="night" data-act="sleep" title="${rough ? 'Al raso: no cura, sube el estrés, se come más y mañana hay menos luz.' : 'A cubierto: cura algo y baja el estrés.'}${n.dark ? ' En la oscuridad la noche pesa más y las emboscadas son más probables.' : ''}">Acampar${rough ? ' al raso' : ''} · ${need} víveres</button>`);
+  if (!atCastle) actions.push(`<button class="night" data-act="sleep" title="${rough ? 'Al raso: no cura, sube el estrés, se come más y mañana hay menos luz.' : 'A cubierto: cura algo y baja el estrés.'}${n.dark ? ' En la oscuridad la noche pesa más y las emboscadas son más probables.' : ''}">Acampar${rough ? ' al raso' : ''} · ${amount('food', need)}</button>`);
 
   const hoursPct = (e.hours / e.maxHours) * 100;
   ui.innerHTML = `
     <header class="cp-hud">
       <div class="cp-day"><span>Día</span><b>${c.state.day}</b></div>
       <div class="cp-hours ${tod}" title="Horas de luz"><span>Luz</span><i><i style="width:${hoursPct}%"></i></i><b>${e.hours} h</b></div>
-      <div class="cp-res"><span title="Víveres">✤ ${e.food}</span><span title="Antorchas">♨ ${e.torches}</span>${resLine(e.bag)}</div>
+      <div class="cp-res">${amount('food', e.food)}${amount('torches', e.torches)}${resLine(e.bag)}</div>
       ${darkHud()}
       <div class="cp-where">${def.name}<small>${{ castle: 'puerta del castillo', cleared: village ? 'aldea' : 'limpio', secured: 'asegurado', hostile: 'hostil', lost: 'perdido', unknown: '' }[c.status(e.node)]}${n.structure ? ` · ${STRUCTURES[n.structure].name.toLowerCase()}` : ''}${n.dark ? ' · en la oscuridad' : ''}</small></div>
     </header>
