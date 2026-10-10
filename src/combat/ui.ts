@@ -26,9 +26,10 @@ export class CombatUi {
         <div class="cb-round"><span>Ronda</span><b data-id="round">1</b></div>
         <ol class="cb-order" data-id="order"></ol>
         <div class="cb-enc" data-id="enc"></div>
+        <button class="cb-log-toggle" data-id="log-toggle" title="Registro del combate (L)" aria-expanded="false" aria-controls="cb-log">☰ Registro</button>
       </header>
       <div class="cb-banner" data-id="banner"><h2></h2><p></p></div>
-      <ol class="cb-log" data-id="log"></ol>
+      <ol class="cb-log" id="cb-log" data-id="log"></ol>
       <div class="cb-bubbles" data-id="bubbles"></div>
       <nav class="cb-command" data-id="command" aria-label="Habilidades"><ol data-id="skills"></ol></nav>
       <footer class="cb-panel" data-id="panel">
@@ -42,13 +43,26 @@ export class CombatUi {
     `;
     this.bubbles = this.q('bubbles');
     this.q('enc').textContent = `${combat.encounter.name}${combat.state.night ? ' · de noche' : ''}`;
+    // El registro va plegado: lo que pasa ya se ve en la escena y en los rótulos.
+    this.q('log-toggle').addEventListener('click', () => this.toggleLog());
+    window.addEventListener('keydown', this.onKey);
+  }
+
+  private onKey = (e: KeyboardEvent) => {
+    if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey) this.toggleLog();
+  };
+
+  private toggleLog() {
+    const open = this.root.classList.toggle('log-open');
+    this.q('log-toggle').setAttribute('aria-expanded', String(open));
   }
 
   /** Vacía la capa de interfaz al terminar el combate. */
   destroy() {
+    window.removeEventListener('keydown', this.onKey);
     if (this.bannerTimer) clearTimeout(this.bannerTimer);
     this.root.innerHTML = '';
-    this.root.classList.remove('player-turn');
+    this.root.classList.remove('player-turn', 'log-open');
   }
 
   private q(id: string) {
@@ -248,7 +262,7 @@ export class CombatUi {
     li.className = `tone-${tone}`;
     li.textContent = text;
     ol.prepend(li);
-    while (ol.children.length > 7) ol.lastElementChild!.remove();
+    while (ol.children.length > 40) ol.lastElementChild!.remove();
   }
 
   narrate(text: string) {
