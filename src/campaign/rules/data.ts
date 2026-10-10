@@ -94,6 +94,29 @@ export const NAMES: Record<Exclude<SoldierKind, 'hero'>, string[]> = {
   chaplain: ['Maren', 'Clara', 'Edda', 'Lucía', 'Agnes', 'Brígida'],
 };
 
+/**
+ * Nombres con gracia: dicho del tirón, suenan a otra cosa. Los lanceros
+ * llevan los de hombre y las arqueras y capellanas, los de mujer.
+ */
+export const FUN_NAMES = {
+  male: ['Aitor Menta', 'Elvio Lento', 'Alan Brito Delgado', 'Armando Bronca Segura', 'Esteban Dido', 'Paco Merte', 'Mario Neta', 'Igor Dito', 'Elmer Curio', 'Kerri Kaverga'],
+  female: [
+    'Susana Oria',
+    'Elena Nito del Bosque',
+    'Elba Lazo',
+    'Inés Queleto',
+    'Lola Mento',
+    'Zoila Vaca',
+    'Elsa Capunta',
+    'Helen Chufe',
+    'Ester Colero',
+    'Encarna Vales',
+    'Elena Morado',
+    'Lali Monada',
+    'Ana Tomía',
+  ],
+};
+
 export const RECRUIT_COST: Record<Exclude<SoldierKind, 'hero'>, number> = { spearman: 30, archer: 30, chaplain: 40 };
 
 export const START = {

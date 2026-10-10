@@ -3,7 +3,7 @@ import { Combat } from '../../combat/rules/Combat';
 import { autoplay } from '../../combat/rules/autoplay';
 import { playCampaign } from './bot';
 import { Campaign } from './Campaign';
-import { CBAL } from './data';
+import { CBAL, FUN_NAMES } from './data';
 
 /** Campaña recién empezada con víveres y el grupo inicial en la puerta. */
 function departed(seed = 1) {
@@ -450,6 +450,35 @@ describe('campaña: centinelas y relevos', () => {
     night(c);
     expect(s.hp).toBe(5 + Math.round(c.maxHp(s) * CBAL.guardRest.heal));
     expect(s.stress).toBe(40 + CBAL.guardRest.stress);
+  });
+});
+
+describe('campaña: nombres', () => {
+  it('se puede pasar a nombres con gracia y volver sin perder ninguno', () => {
+    const c = new Campaign(1);
+    const [hero, spear, archer] = c.state.soldiers;
+    c.setNameStyle('fun');
+    expect(hero.name).toBe('Aldric, Héroe del Alba');
+    expect(FUN_NAMES.male).toContain(spear.name);
+    expect(FUN_NAMES.female).toContain(archer.name);
+    for (const r of c.state.recruits) expect([...FUN_NAMES.male, ...FUN_NAMES.female]).toContain(r.name);
+    const fun = spear.name;
+    c.setNameStyle('classic');
+    expect(spear.name).toBe('Bram');
+    c.setNameStyle('fun');
+    expect(spear.name).toBe(fun);
+    // Sin repetir nombres
+    const names = [...c.state.soldiers, ...c.state.recruits].map((x) => x.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it('los reclutas conservan su nombre al unirse y salen con el estilo elegido', () => {
+    const c = new Campaign(1);
+    c.setNameStyle('fun');
+    c.state.stock.gold = 500;
+    const offered = c.state.recruits[0].name;
+    expect(c.recruit(0).ok).toBe(true);
+    expect(c.state.soldiers.at(-1)!.name).toBe(offered);
   });
 });
 

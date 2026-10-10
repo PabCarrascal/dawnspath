@@ -2,7 +2,8 @@ import '../combat/combat.css';
 import './campaign.css';
 import '../ui/theme.css';
 import { audio, Track } from '../audio/Audio';
-import { mountSoundControl } from '../audio/SoundControl';
+import { soundSection } from '../audio/SoundControl';
+import { mountSettings, SettingsSection } from '../ui/settings';
 import { Combat } from '../combat/rules/Combat';
 import { startCombat } from '../combat/session';
 import { seedFromString } from '../core/rng';
@@ -10,7 +11,7 @@ import { Campaign } from './rules/Campaign';
 import { amount, costHtml, icon } from '../ui/icons';
 import { BUILDINGS, CBAL, KIND_NAMES, NODE, STRUCTURES } from './rules/data';
 import { EVENT } from './rules/events';
-import type { ActionResult, BuildingId, CampaignState, LogLine, Soldier } from './rules/types';
+import type { ActionResult, BuildingId, CampaignState, LogLine, NameStyle, Soldier } from './rules/types';
 import { MapView } from './view/MapView';
 import { Hd2dCombatView } from '../hd2d/battle';
 import type { Mode } from '../hd2d/look';
@@ -199,6 +200,7 @@ function darkHud() {
 function titleCampaign() {
   const saved = load();
   campaign = new Campaign(saved?.seed ?? 1, saved ?? undefined);
+  campaign.setNameStyle(namePref());
   return saved;
 }
 
@@ -230,6 +232,7 @@ export function showTitle(reveal = false) {
     audio.play('click');
     if (saved && saved.phase !== 'won' && saved.phase !== 'lost' && !confirm('¿Empezar de cero? Se perderá la campaña guardada.')) return;
     campaign = new Campaign(Math.floor(Math.random() * 1e9));
+    campaign.setNameStyle(namePref());
     save();
     void fade(() => {
       showCastle();
@@ -828,6 +831,7 @@ function showEnd() {
   $('[data-act="new"]', ui).addEventListener('click', () => {
     clearSave();
     campaign = new Campaign(Math.floor(Math.random() * 1e9));
+    campaign.setNameStyle(namePref());
     save();
     void fade(() => {
       showCastle();
@@ -837,7 +841,56 @@ function showEnd() {
 }
 
 if (import.meta.env.DEV) Object.assign(window, { getCampaign: () => campaign });
+// ───────────────────────── ajustes ─────────────────────────
+
+const PREFS_KEY = 'dawnspath.settings.v1';
+
+/** Estilo de nombres elegido por el jugador (vale para todas las partidas). */
+function namePref(): NameStyle {
+  try {
+    return JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}').names === 'fun' ? 'fun' : 'classic';
+  } catch {
+    return 'classic';
+  }
+}
+
+function setNamePref(names: NameStyle) {
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ names }));
+  } catch {
+    /* sin almacenamiento: vale para esta sesión */
+  }
+}
+
+/** Nombres de los soldados: los de siempre o los de chiste. Renombra la partida en curso. */
+function namesSection(): SettingsSection {
+  const body = document.createElement('div');
+  body.className = 'set-rows';
+  body.innerHTML = `
+    <p class="set-label">Nombres de los soldados</p>
+    <label class="set-choice"><input type="radio" name="names" value="classic" /> Clásicos <small>Bram, Ilse…</small></label>
+    <label class="set-choice"><input type="radio" name="names" value="fun" /> Con gracia <small>Susana Oria, Elena Nito del Bosque…</small></label>`;
+  const radios = [...body.querySelectorAll<HTMLInputElement>('input[name="names"]')];
+  const pref = namePref();
+  for (const r of radios) {
+    r.checked = r.value === pref;
+    r.addEventListener('change', () => {
+      const style = r.value as NameStyle;
+      setNamePref(style);
+      if (!campaign) return;
+      campaign.setNameStyle(style);
+      save();
+      // Se vuelve a pintar la pantalla con los nombres nuevos (en combate, al terminar).
+      const s = campaign.state;
+      if ($('.cp-title', ui) || s.pending) return;
+      if (s.phase === 'castle') showCastle();
+      else if (s.exp) showNode();
+    });
+  }
+  return { title: 'Partida', body };
+}
+
 // Por si se pulsa antes de que la pantalla de carga pida el gesto.
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 window.addEventListener('keydown', () => audio.unlock(), { once: true });
-mountSoundControl();
+mountSettings([soundSection(), namesSection()]);

@@ -1,4 +1,4 @@
-/* Control de sonido, común al juego y al banco de pruebas del combate. */
+/* Botón y panel de ajustes, comunes al juego, al banco de combate y a la galería. */
 
 .snd {
   position: fixed;
@@ -20,15 +20,28 @@
 .snd.open .snd-toggle {
   border-color: #c9a24a;
 }
-.snd-toggle.off {
-  opacity: 0.7;
+.snd-toggle {
+  position: relative;
+  color: #f6dc8c;
+  font-size: 22px;
+  line-height: 1;
+}
+/* Sin sonido: una marca pequeña sobre el engranaje */
+.snd-toggle.off::after {
+  content: '🔇';
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  font-size: 13px;
 }
 .snd-panel {
   position: absolute;
   top: 50px;
   right: 0;
   display: none;
-  width: 240px;
+  width: 280px;
+  max-height: calc(100vh - 80px);
+  overflow-y: auto;
   padding: 14px 16px;
   border: 1px solid #4a3a26;
   background: rgba(14, 11, 9, 0.96);
@@ -37,7 +50,50 @@
 }
 .snd.open .snd-panel {
   display: grid;
+  gap: 14px;
+}
+.snd-panel h3 {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 17px;
+  color: #f6dc8c;
+}
+.snd-panel h4 {
+  margin: 0 0 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #d4b25e;
+}
+.snd-panel section + section {
+  padding-top: 12px;
+  border-top: 1px solid rgba(212, 178, 94, 0.3);
+}
+.set-rows {
+  display: grid;
   gap: 10px;
+}
+.set-label {
+  margin: 0;
+  font-size: 15px;
+}
+.snd-panel label.set-choice {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  cursor: pointer;
+}
+.set-choice input {
+  accent-color: #c9a24a;
+}
+.set-choice small {
+  flex-basis: 100%;
+  padding-left: 22px;
+  font-size: 13px;
+  font-style: italic;
+  color: rgba(232, 224, 204, 0.62);
 }
 .snd-panel label {
   display: grid;

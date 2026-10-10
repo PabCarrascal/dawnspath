@@ -1,17 +1,20 @@
 import { Rng } from '../../core/rng';
 import type { Combat } from '../../combat/rules/Combat';
 import { Encounter, Recruit, UNITS } from '../../combat/rules/data';
-import { BUILDINGS, CBAL, KIND_NAMES, MAP, NAMES, NIGHT_FOES, NODE, RECRUIT_COST, START, STRUCTURES } from './data';
+import { BUILDINGS, CBAL, FUN_NAMES, KIND_NAMES, MAP, NAMES, NIGHT_FOES, NODE, RECRUIT_COST, START, STRUCTURES } from './data';
 import { EVENT, EVENTS, EventApi, EventDef } from './events';
 import type {
   ActionResult,
   BuildingId,
   CampaignState,
   LogLine,
+  Names,
+  NameStyle,
   NodeState,
   NodeStatus,
   PendingCombat,
   PendingEvent,
+  RecruitOffer,
   Resources,
   Soldier,
   SoldierKind,
@@ -198,15 +201,38 @@ export class Campaign {
 
   // ───────────────────────── soldados y reclutas ─────────────────────────
 
-  private addSoldier(kind: SoldierKind, name: string): Soldier {
-    const s: Soldier = { id: `s${this.state.nextId++}`, kind, name, hp: UNITS[kind].maxHp, stress: 0, affliction: null, xp: 0, alive: true, where: 'castle' };
+  private addSoldier(kind: SoldierKind, name: string, names: Names = {}): Soldier {
+    const s: Soldier = { id: `s${this.state.nextId++}`, kind, name, hp: UNITS[kind].maxHp, stress: 0, affliction: null, xp: 0, alive: true, where: 'castle', ...names };
+    this.applyName(s);
     this.state.soldiers.push(s);
     return s;
   }
 
+  /** Cambia el estilo de nombres y renombra a soldados y reclutas (salvo el héroe y los personajes con nombre propio). */
+  setNameStyle(style: NameStyle) {
+    this.state.names = style;
+    for (const x of [...this.state.soldiers, ...this.state.recruits]) this.applyName(x);
+  }
+
+  private applyName(x: Soldier | RecruitOffer) {
+    if (x.kind === 'hero' || x.unique) return;
+    x.classic ??= x.name;
+    x.fun ??= this.funName(x);
+    x.name = this.state.names === 'fun' ? x.fun : x.classic;
+  }
+
+  /** Nombre con gracia libre para un soldado; siempre el mismo para el mismo nombre clásico. */
+  private funName(x: Soldier | RecruitOffer) {
+    const pool = x.kind === 'spearman' ? FUN_NAMES.male : FUN_NAMES.female;
+    const used = new Set([...this.state.soldiers, ...this.state.recruits].map((y) => y.fun));
+    const free = pool.filter((n) => !used.has(n));
+    const hash = [...(x.classic ?? x.name)].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    return free.length ? free[hash % free.length] : `${pool[hash % pool.length]} II`;
+  }
+
   private rollRecruits() {
     const n = 2 + this.state.buildings.tavern;
-    const used = new Set(this.state.soldiers.map((s) => s.name));
+    const used = new Set(this.state.soldiers.map((s) => s.classic ?? s.name));
     const kinds: Exclude<SoldierKind, 'hero'>[] = ['spearman', 'archer', 'chaplain'];
     const offers = [];
     for (let i = 0; i < n; i++) {
@@ -217,9 +243,13 @@ export class Campaign {
       used.add(name);
       offers.push({ kind, name, cost: RECRUIT_COST[kind] });
     }
+    this.state.recruits = [];
+    for (const o of offers) {
+      this.applyName(o);
+      this.state.recruits.push(o);
+    }
     // Si el héroe se ha quedado solo, alguien de la aldea se ofrece sin pedir nada.
     if (!this.state.soldiers.some((s) => s.alive && s.kind !== 'hero')) offers[0].cost = 0;
-    this.state.recruits = offers;
   }
 
   // ───────────────────────── castillo ─────────────────────────
@@ -289,7 +319,7 @@ export class Campaign {
     if (this.state.stock.gold < o.cost) return fail(`Hacen falta ${o.cost} de oro.`);
     this.state.stock.gold -= o.cost;
     this.state.recruits.splice(i, 1);
-    const s = this.addSoldier(o.kind, o.name);
+    const s = this.addSoldier(o.kind, o.classic ?? o.name, { classic: o.classic, fun: o.fun });
     return { ok: true, log: [{ text: `${s.name} (${KIND_NAMES[s.kind]}) se une a la compañía.`, tone: 'good' }] };
   }
 
@@ -460,7 +490,7 @@ export class Campaign {
       hoursLeft: () => e().hours,
       hours: (n) => (e().hours = Math.max(0, e().hours - n)),
       recruit: (kind, name) => {
-        const s = this.addSoldier(kind, name);
+        const s = this.addSoldier(kind, name, { unique: true });
         if (e().party.length < CBAL.partyMax) {
           s.where = 'party';
           e().party.push(s.id);
@@ -523,7 +553,7 @@ export class Campaign {
     if (e.bag.gold < cost) return fail(`Hacen falta ${cost} de oro en la caravana.`);
     e.bag.gold -= cost;
     n.uses = 1;
-    const s = this.addSoldier(def.village.recruit, def.village.name);
+    const s = this.addSoldier(def.village.recruit, def.village.name, { unique: true });
     s.where = 'party';
     e.party.push(s.id);
     this.sync();

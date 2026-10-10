@@ -1,4 +1,4 @@
-import './sound.css';
+import { mountSettings, SettingsSection } from '../ui/settings';
 import { audio } from './Audio';
 
 interface SoundSettings {
@@ -37,36 +37,29 @@ function apply(s: SoundSettings) {
 }
 
 /**
- * Botón de sonido fijo en la esquina: abre un panel con música, efectos y
- * silencio. La tecla M silencia y vuelve a activar el sonido.
+ * Sección de sonido del panel de ajustes: música, efectos y silencio. La
+ * tecla M silencia y vuelve a activar el sonido desde cualquier pantalla.
  */
-export function mountSoundControl() {
+export function soundSection(): SettingsSection {
   const s = load();
   apply(s);
 
-  const root = document.createElement('div');
-  root.className = 'snd';
-  root.innerHTML = `
-    <button class="snd-toggle" title="Sonido (M para silenciar)" aria-label="Sonido" aria-expanded="false"></button>
-    <div class="snd-panel" role="dialog" aria-label="Sonido">
-      <label>Música <input type="range" min="0" max="1" step="0.05" data-k="music" /></label>
-      <label>Efectos <input type="range" min="0" max="1" step="0.05" data-k="sfx" /></label>
-      <label class="snd-mute"><input type="checkbox" data-k="muted" /> Silenciar todo <kbd>M</kbd></label>
-    </div>`;
-  document.body.appendChild(root);
-
-  const toggle = root.querySelector<HTMLButtonElement>('.snd-toggle')!;
-  const music = root.querySelector<HTMLInputElement>('[data-k="music"]')!;
-  const sfx = root.querySelector<HTMLInputElement>('[data-k="sfx"]')!;
-  const muted = root.querySelector<HTMLInputElement>('[data-k="muted"]')!;
+  const body = document.createElement('div');
+  body.className = 'set-rows';
+  body.innerHTML = `
+    <label>Música <input type="range" min="0" max="1" step="0.05" data-k="music" /></label>
+    <label>Efectos <input type="range" min="0" max="1" step="0.05" data-k="sfx" /></label>
+    <label class="snd-mute"><input type="checkbox" data-k="muted" /> Silenciar todo <kbd>M</kbd></label>`;
+  const music = body.querySelector<HTMLInputElement>('[data-k="music"]')!;
+  const sfx = body.querySelector<HTMLInputElement>('[data-k="sfx"]')!;
+  const muted = body.querySelector<HTMLInputElement>('[data-k="muted"]')!;
 
   const render = () => {
     music.value = String(s.music);
     sfx.value = String(s.sfx);
     muted.checked = s.muted;
-    const silent = s.muted || (s.music === 0 && s.sfx === 0);
-    toggle.textContent = silent ? '🔇' : '🔊';
-    toggle.classList.toggle('off', silent);
+    // El botón de ajustes avisa si no suena nada.
+    document.querySelector('.snd-toggle')?.classList.toggle('off', s.muted || (s.music === 0 && s.sfx === 0));
   };
   const change = () => {
     apply(s);
@@ -87,19 +80,7 @@ export function mountSoundControl() {
     s.muted = muted.checked;
     change();
   });
-
-  const setOpen = (open: boolean) => {
-    root.classList.toggle('open', open);
-    toggle.setAttribute('aria-expanded', String(open));
-  };
-  toggle.addEventListener('click', (e) => {
-    e.stopPropagation();
-    audio.unlock();
-    setOpen(!root.classList.contains('open'));
-  });
-  document.addEventListener('pointerdown', (e) => {
-    if (!root.contains(e.target as Node)) setOpen(false);
-  });
+  body.addEventListener('pointerdown', () => audio.unlock());
   window.addEventListener('keydown', (e) => {
     if (e.key.toLowerCase() !== 'm' || e.metaKey || e.ctrlKey || (e.target as HTMLElement).tagName === 'INPUT') return;
     s.muted = !s.muted;
@@ -107,5 +88,11 @@ export function mountSoundControl() {
   });
 
   // Si el motor aún no existe (falta un gesto del usuario), `unlock()` aplicará estos valores al crearlo.
-  render();
+  queueMicrotask(render);
+  return { title: 'Sonido', body };
+}
+
+/** Ajustes con solo el sonido (banco de combate, galería de estilo). */
+export function mountSoundControl() {
+  mountSettings([soundSection()]);
 }

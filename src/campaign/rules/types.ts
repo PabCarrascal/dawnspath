@@ -13,7 +13,18 @@ export interface Resources {
 }
 
 /** Soldado persistente: sus heridas, su estrés y su experiencia viajan con él. */
-export interface Soldier {
+/** Nombres de los soldados: los de siempre o los de chiste ("Susana Oria"). */
+export type NameStyle = 'classic' | 'fun';
+
+/** Nombres alternativos de un soldado o recluta, para poder cambiar de estilo sin perderlos. */
+export interface Names {
+  classic?: string;
+  fun?: string;
+  /** Personaje con nombre propio (aldeas, sucesos): no se renombra. */
+  unique?: boolean;
+}
+
+export interface Soldier extends Names {
   id: string;
   kind: SoldierKind;
   name: string;
@@ -29,7 +40,7 @@ export interface Soldier {
   fate?: string;
 }
 
-export interface RecruitOffer {
+export interface RecruitOffer extends Names {
   kind: SoldierKind;
   name: string;
   cost: number;
@@ -147,6 +158,8 @@ export interface CampaignState {
   darkClock: number;
   /** Asedio: días que resiste el castillo con la oscuridad a sus puertas. */
   siege: number | null;
+  /** Estilo de nombres de los soldados (ajuste del jugador). */
+  names?: NameStyle;
   /** Recargo en el precio de los víveres por aldea (sucesos). */
   villagePrices?: Record<string, number>;
   /** Aldeas cuyo recluta se ofrece gratis. */

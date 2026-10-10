@@ -394,14 +394,16 @@ button.cp-link {
   background: var(--panel);
 }
 .cp-soldier-head b {
-  display: block;
+  /* Nombres largos ("Armando Bronca Segura") en dos líneas como mucho */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   font-family: var(--caps);
   font-weight: 400;
-  font-size: 17px;
+  font-size: 15px;
+  line-height: 1.15;
   color: var(--gold-bright);
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .cp-soldier-head span {
   font-size: 13px;
