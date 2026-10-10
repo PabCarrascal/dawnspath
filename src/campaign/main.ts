@@ -12,6 +12,7 @@ import { Campaign } from './rules/Campaign';
 import { amount, costHtml, icon } from '../ui/icons';
 import { BUILDINGS, CBAL, KIND_NAMES, NODE, STRUCTURES } from './rules/data';
 import { EVENT } from './rules/events';
+import { FEATS, featsDone } from './rules/feats';
 import type { ActionResult, BuildingId, CampaignState, LogLine, NameStyle, Soldier } from './rules/types';
 import { MapView } from './view/MapView';
 import { Hd2dCombatView } from '../hd2d/battle';
@@ -54,6 +55,64 @@ function save() {
   } catch {
     // Sin almacenamiento (modo privado): la partida sigue, pero no se guarda.
   }
+  checkFeats();
+}
+
+// ───────────────────────── hazañas ─────────────────────────
+
+/** Hazañas conseguidas en este navegador (valen para todas las partidas), con su fecha. */
+const FEATS_KEY = 'dawnspath.feats.v1';
+
+function unlockedFeats(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(FEATS_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+
+/** Tras cada cambio: si la campaña cumple alguna hazaña nueva, se apunta y se anuncia. */
+function checkFeats() {
+  const got = unlockedFeats();
+  const fresh = featsDone(campaign).filter((id) => !got[id]);
+  if (!fresh.length) return;
+  for (const id of fresh) got[id] = new Date().toISOString();
+  try {
+    localStorage.setItem(FEATS_KEY, JSON.stringify(got));
+  } catch {
+    /* sin almacenamiento: se anuncian igual */
+  }
+  fresh.forEach((id, i) => setTimeout(() => announceFeat(id), 600 + i * 2600));
+}
+
+function announceFeat(id: string) {
+  const f = FEATS.find((x) => x.id === id)!;
+  audio.play('levelUp');
+  const el = document.createElement('div');
+  el.className = 'cp-feat';
+  el.innerHTML = `<span>Hazaña</span><b></b><small></small>`;
+  el.querySelector('b')!.textContent = f.name;
+  el.querySelector('small')!.textContent = f.desc;
+  document.body.appendChild(el);
+  // Forzar el cálculo de estilos antes de mostrarlo, para que se vea la transición.
+  void el.offsetWidth;
+  el.classList.add('on');
+  setTimeout(() => el.classList.remove('on'), 3800);
+  setTimeout(() => el.remove(), 4400);
+}
+
+function showFeats() {
+  const got = unlockedFeats();
+  const n = FEATS.filter((f) => got[f.id]).length;
+  const m = modal(
+    `<h2>Hazañas <small>· ${n} de ${FEATS.length}</small></h2>
+    <ul class="cp-feats">${FEATS.map(
+      (f) => `<li class="${got[f.id] ? 'done' : ''}"><i>${got[f.id] ? '★' : '☆'}</i><div><b>${f.name}</b><small>${f.desc}</small></div></li>`,
+    ).join('')}</ul>
+    <div class="cp-buttons"><button data-act="ok">Cerrar</button></div>`,
+    'narrow',
+  );
+  $('[data-act="ok"]', m).addEventListener('click', closeModal);
 }
 
 function clearSave() {
@@ -227,6 +286,7 @@ export function showTitle(reveal = false) {
       <div class="cp-buttons">
         ${saved && saved.phase !== 'won' && saved.phase !== 'lost' ? `<button class="primary" data-act="continue">Continuar · día ${saved.day}</button>` : ''}
         <button class="${saved ? '' : 'primary'}" data-act="new">Nueva campaña</button>
+        <button data-act="feats">Hazañas</button>
       </div>
     </div>`;
   $('[data-act="new"]', ui).addEventListener('click', () => {
@@ -842,7 +902,7 @@ function showEnd() {
       ${won ? '<p class="dim">Fin de esta campaña. Aquí empezaría el camino hacia el Rey de la Noche.</p>' : ''}
       <h3>Memorial</h3>
       <ul class="cp-report">${fallen.length ? fallen.map((x) => `<li><b>${x.name}</b> · ${KIND_NAMES[x.kind]} · ${x.fate ?? ''}</li>`).join('') : '<li>Nadie cayó. Una hazaña rara.</li>'}</ul>
-      <div class="cp-buttons"><button class="primary" data-act="new">Nueva campaña</button></div>
+      <div class="cp-buttons"><button class="primary" data-act="new">Nueva campaña</button><button data-act="feats">Hazañas</button></div>
     </div>`;
   $('[data-act="new"]', ui).addEventListener('click', () => {
     clearSave();
@@ -905,6 +965,14 @@ function namesSection(): SettingsSection {
   }
   return { title: 'Partida', body };
 }
+
+// El botón de hazañas de la portada y del final.
+ui.addEventListener('click', (e) => {
+  if ((e.target as Element).closest('[data-act="feats"]')) {
+    audio.play('click');
+    showFeats();
+  }
+});
 
 // Por si se pulsa antes de que la pantalla de carga pida el gesto.
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });

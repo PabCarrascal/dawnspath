@@ -166,7 +166,20 @@ export interface CampaignState {
   freeHire?: string[];
   /** Último informe del amanecer o del regreso, para mostrarlo tras recargar. */
   report: { title: string; lines: LogLine[] } | null;
-  stats: { expeditions: number; battles: number; deaths: number; nights: number };
+  stats: {
+    expeditions: number;
+    battles: number;
+    deaths: number;
+    nights: number;
+    /** Para las hazañas (opcionales: las partidas antiguas no los traen). */
+    mimics?: number;
+    sentinels?: number;
+    siegesLifted?: number;
+    virtues?: number;
+    heroDowned?: number;
+    /** Máximo de nodos en retaguardia a la vez. */
+    maxShielded?: number;
+  };
   nextId: number;
   endReason?: string;
 }

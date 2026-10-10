@@ -948,3 +948,88 @@ em.affl {
     width: 90px;
   }
 }
+
+/* ───────────────────────── hazañas ───────────────────────── */
+
+/* Aviso al conseguir una: cinta dorada arriba, en el centro */
+.cp-feat {
+  position: fixed;
+  left: 50%;
+  top: 76px;
+  z-index: 44;
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 260px;
+  padding: 10px 26px 12px;
+  border: 1px solid #f6dc8c;
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(40, 58, 116, 0.97), rgba(16, 24, 54, 0.97));
+  box-shadow:
+    0 0 0 1px rgba(8, 12, 30, 0.9),
+    0 0 26px rgba(246, 220, 140, 0.45);
+  color: var(--bone);
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -10px);
+  transition:
+    opacity 0.35s,
+    transform 0.35s;
+  pointer-events: none;
+}
+.cp-feat.on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.cp-feat span {
+  font-family: var(--caps);
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+.cp-feat b {
+  font-family: var(--caps);
+  font-size: 22px;
+  color: var(--gold-bright);
+}
+.cp-feat small {
+  font-size: 14px;
+  font-style: italic;
+  color: var(--bone-dim);
+}
+
+/* Lista de hazañas */
+.cp-feats {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.cp-feats li {
+  display: grid;
+  grid-template-columns: 26px 1fr;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.5;
+}
+.cp-feats li.done {
+  opacity: 1;
+}
+.cp-feats i {
+  font-style: normal;
+  font-size: 20px;
+  color: var(--gold-bright);
+  text-align: center;
+}
+.cp-feats b {
+  display: block;
+  font-family: var(--caps);
+  font-weight: 400;
+  color: var(--gold-bright);
+}
+.cp-feats small {
+  font-size: 14px;
+  color: var(--bone-dim);
+}

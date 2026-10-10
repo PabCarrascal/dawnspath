@@ -4,6 +4,7 @@ import { autoplay } from '../../combat/rules/autoplay';
 import { playCampaign } from './bot';
 import { Campaign } from './Campaign';
 import { CBAL, FUN_NAMES } from './data';
+import { featsDone } from './feats';
 
 /** Campaña recién empezada con víveres y el grupo inicial en la puerta. */
 function departed(seed = 1) {
@@ -479,6 +480,48 @@ describe('campaña: nombres', () => {
     const offered = c.state.recruits[0].name;
     expect(c.recruit(0).ok).toBe(true);
     expect(c.state.soldiers.at(-1)!.name).toBe(offered);
+  });
+});
+
+describe('campaña: hazañas', () => {
+  it('al empezar no hay ninguna', () => {
+    expect(featsDone(new Campaign(1))).toEqual([]);
+  });
+
+  it('muralla viva: tres nodos en retaguardia a la vez', () => {
+    const c = departed();
+    const [, spear, archer] = c.state.soldiers;
+    hold(c, 'prado');
+    hold(c, 'robledal');
+    hold(c, 'bosque');
+    hold(c, 'ruinas', archer.id);
+    hold(c, 'vado', spear.id);
+    hold(c, 'ermita', c.hero.id);
+    c.state.exp!.party = [c.hero.id];
+    c.reorder([c.hero.id]); // cualquier acción vale para que las reglas lo apunten
+    c.cancel();
+    expect(c.state.stats.maxShielded).toBeGreaterThanOrEqual(3);
+    expect(featsDone(c)).toContain('muralla-viva');
+  });
+
+  it('fuego purificador: destruir el cubil', () => {
+    const c = departed();
+    c.state.exp!.node = 'ruinas';
+    hold(c, 'ruinas');
+    c.move('cubil');
+    winPending(c);
+    expect(featsDone(c)).toContain('fuego-purificador');
+  });
+
+  it('vencer a un mímico y apostar centinelas cuentan', () => {
+    const c = departed();
+    c.move('prado');
+    winPending(c);
+    withMimic(1, () => c.loot());
+    winPending(c);
+    expect(featsDone(c)).toContain('no-todo-brilla');
+    c.state.stats.sentinels = 5;
+    expect(featsDone(c)).toContain('a-sueldo');
   });
 });
 

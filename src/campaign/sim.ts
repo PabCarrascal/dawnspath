@@ -3,6 +3,7 @@
  * Un bot juega el corte vertical entero con la IA de combate en ambos bandos.
  */
 import { playCampaign } from './rules/bot';
+import { FEATS } from './rules/feats';
 
 declare const process: { argv: string[] };
 
@@ -24,3 +25,4 @@ for (const r of lost) reasons[r.reason ?? '?'] = (reasons[r.reason ?? '?'] ?? 0)
 console.log(`derrotas por: ${Object.entries(reasons).map(([k, v]) => `${k} (${v})`).join(' · ')}`);
 console.log(`nodos oscuros como máximo ${avg((r) => r.maxDark)}`);
 console.log(`edificios al final: herrería ${avg((r) => r.buildings.smithy)} · taberna ${avg((r) => r.buildings.tavern)} · logia ${avg((r) => r.buildings.lodge)}`);
+console.log(`hazañas: ${FEATS.map((f) => `${f.name} ${pct(runs.filter((r) => r.feats.includes(f.id)).length)}`).join(' · ')}`);

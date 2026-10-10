@@ -418,6 +418,7 @@ export class Combat {
       if (this.rng.chance(BAL.virtueChance)) {
         t.stress = 45;
         events.push({ type: 'resolve', target: t.id, result: 'virtue' });
+        this.state.virtues = (this.state.virtues ?? 0) + 1;
         events.push({ type: 'stress', target: t.id, amount: 0, stress: t.stress });
         this.addStatus(t, { kind: 'steady', turns: 4 }, events);
         for (const a of this.alive('party')) if (a.id !== t.id) this.addStress(a, -6, events);

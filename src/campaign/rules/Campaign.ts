@@ -92,6 +92,10 @@ export class Campaign {
   /** Guarda la posición del generador aleatorio en el estado (para el guardado). */
   private sync() {
     this.state.rng = this.rng.state;
+    // Hazaña "Muralla viva": cuántos nodos llegan a estar en retaguardia a la vez.
+    const exposed = this.exposed();
+    const shielded = MAP.filter((d) => this.status(d.id) === 'cleared' && this.shielded(d.id, exposed)).length;
+    if (shielded > (this.state.stats.maxShielded ?? 0)) this.state.stats.maxShielded = shielded;
   }
 
   // ───────────────────────── consultas ─────────────────────────
@@ -135,6 +139,11 @@ export class Campaign {
     if (!n.seen) return 'unknown';
     if (n.foes.length) return n.everCleared ? 'lost' : 'hostile';
     return n.structure && this.guards(id) ? 'secured' : 'cleared';
+  }
+
+  /** Suma a un contador de las estadísticas (los que usan las hazañas). */
+  private count(key: 'mimics' | 'sentinels' | 'siegesLifted' | 'virtues' | 'heroDowned', n = 1) {
+    if (n) this.state.stats[key] = (this.state.stats[key] ?? 0) + n;
   }
 
   /** Guardias de un nodo: soldados y centinelas. */
@@ -695,6 +704,7 @@ export class Campaign {
     if (e.bag.gold < CBAL.sentinel.cost) return fail(`Hacen falta ${CBAL.sentinel.cost} de oro.`);
     e.bag.gold -= CBAL.sentinel.cost;
     n.sentinels = (n.sentinels ?? 0) + 1;
+    this.count('sentinels');
     this.sync();
     return { ok: true, log: [{ text: `Un centinela queda de guardia en ${NODE[e.node].name}.`, tone: 'info' }] };
   }
@@ -800,6 +810,9 @@ export class Campaign {
     if (outcome !== 'won' && outcome !== 'lost' && outcome !== 'fled') return fail('El combate no ha terminado.');
     this.state.pending = null;
     this.state.stats.battles++;
+    this.count('virtues', combat.state.virtues ?? 0);
+    if (outcome === 'won' && p.kind === 'mimic') this.count('mimics');
+    if (combat.state.fighters.some((f) => f.kind === 'hero' && f.downed)) this.count('heroDowned');
     const log: LogLine[] = [];
 
     // Heridas, estrés y bajas vuelven a los soldados; el orden final de filas se conserva.
@@ -971,6 +984,7 @@ export class Campaign {
       for (const s of this.state.soldiers) if (s.alive && s.where === 'castle') s.stress = clamp(s.stress + 8, 0, 200);
     } else if (this.state.siege !== null) {
       this.state.siege = null;
+      this.count('siegesLifted');
       log.push({ text: 'La oscuridad se aleja de las murallas. El asedio termina.', tone: 'good' });
     }
     return log;

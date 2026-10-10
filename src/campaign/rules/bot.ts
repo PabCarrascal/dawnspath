@@ -3,6 +3,7 @@ import { autoplay } from '../../combat/rules/autoplay';
 import { Campaign } from './Campaign';
 import { BUILDINGS, CBAL, NODE } from './data';
 import { EVENT } from './events';
+import { featsDone } from './feats';
 import type { BuildingId, Soldier } from './types';
 
 const RANK_ORDER: Record<string, number> = { hero: 0, spearman: 1, archer: 2, chaplain: 3 };
@@ -40,6 +41,8 @@ export interface BotSummary {
   deaths: number;
   nights: number;
   buildings: Record<BuildingId, number>;
+  /** Hazañas conseguidas en la campaña. */
+  feats: string[];
 }
 
 /** Estilo del bot. `guards`: deja guardias en los nodos que lindan con criaturas, para ir cerrando el frente. */
@@ -74,6 +77,7 @@ export function playCampaign(seed: number, maxDays = 80, style: BotStyle = {}): 
     deaths: s.stats.deaths,
     nights: s.stats.nights,
     buildings: { ...s.buildings },
+    feats: featsDone(c),
   };
 }
 

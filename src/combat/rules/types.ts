@@ -91,6 +91,8 @@ export interface CombatState {
   phase: Phase;
   night: boolean;
   nextId: number;
+  /** Veces que un soldado ha hallado valor con el estrés al máximo (hazañas). */
+  virtues?: number;
 }
 
 /** Eventos que el motor emite y la vista reproduce en orden. */
