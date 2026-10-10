@@ -16,7 +16,13 @@ import { buildPost } from './post';
 /** Habilidades que se lanzan a distancia (flecha o proyectil mágico). */
 const ARROWS = new Set(['shot', 'markShot', 'volley', 'pinpoint']);
 const BOLTS = new Set(['dart', 'nightBolt', 'blind']);
-const DREAD = new Set(['whisper', 'roar', 'dread']);
+/** Habilidades sin golpe que asustan: tiñen la pantalla (violeta el miedo, dorado el brillo del mímico). */
+const DREAD: Record<string, string> = {
+  whisper: 'rgba(120, 40, 180, 0.35)',
+  roar: 'rgba(120, 40, 180, 0.35)',
+  dread: 'rgba(120, 40, 180, 0.35)',
+  glitter: 'rgba(255, 200, 80, 0.35)',
+};
 
 const STATUS_GLYPH: Record<StatusKind, { glyph: string; title: string }> = {
   bleed: { glyph: '✦', title: 'Sangrando' },
@@ -133,7 +139,7 @@ export class Hd2dCombatView implements BattleView {
   // ───────────────────────── montaje ─────────────────────────
 
   private addUnit(f: Fighter) {
-    const kind = (f.kind in { hero: 1, spearman: 1, archer: 1, chaplain: 1, shade: 1, brute: 1, stalker: 1, herald: 1 } ? f.kind : 'shade') as SpriteKind;
+    const kind = (f.kind in { hero: 1, spearman: 1, archer: 1, chaplain: 1, shade: 1, brute: 1, stalker: 1, herald: 1, mimic: 1 } ? f.kind : 'shade') as SpriteKind;
     const sprite = new PixelSprite(spriteSheet(kind).texture(), 1.05, f.side === 'foe' ? 1.3 : 1.6, f.side === 'foe');
     this.scene.add(sprite.mesh);
     const mat = sprite.mesh.material as THREE.MeshStandardMaterial;
@@ -545,11 +551,11 @@ export class Hd2dCombatView implements BattleView {
           mid.y = 0.55;
           if (skill.target.side === 'enemy') {
             const ranged = ARROWS.has(skill.id) || BOLTS.has(skill.id);
-            if (DREAD.has(skill.id) && !skill.dmg) {
-              // Grito o susurro: onda violeta y la pantalla se tiñe.
-              ui.sound('roar');
+            if (DREAD[skill.id] && !skill.dmg) {
+              // Grito, susurro o destello: la pantalla se tiñe.
+              ui.sound(skill.id === 'glitter' ? 'good' : 'roar');
               actor.sprite.setPose('attack');
-              this.screenTint('rgba(120, 40, 180, 0.35)');
+              this.screenTint(DREAD[skill.id]);
               await Promise.all([this.focusCam(mid, 0.9), anim.tween(380, (k) => (actor.pose.dy = Math.sin(k * Math.PI) * 0.3), ease.out)]);
               acting = actor;
             } else if (ranged) {

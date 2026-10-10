@@ -29,6 +29,8 @@ export const CBAL = {
     castle: { stress: -15 },
   },
   hunger: { stress: 12, hp: 3 },
+  /** Cofre mímico al saquear donde ya hubo combate: probabilidad, cura previa y botín extra al vencerlo. */
+  mimic: { chance: 0.12, heal: 0.2, lootBonus: 1.5 },
   /** Botín de oro por criatura abatida. */
   goldPerFoe: 8,
   xpLevels: [0, 2, 5, 9],

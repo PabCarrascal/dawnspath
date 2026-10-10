@@ -15,6 +15,17 @@ function departed(seed = 1) {
   return c;
 }
 
+/** Ejecuta `fn` con otra probabilidad de mímico y la restaura después. */
+function withMimic<T>(chance: number, fn: () => T): T {
+  const before = CBAL.mimic.chance;
+  CBAL.mimic.chance = chance;
+  try {
+    return fn();
+  } finally {
+    CBAL.mimic.chance = before;
+  }
+}
+
 /** Gana el combate pendiente dejando a todas las criaturas muertas. */
 function winPending(c: Campaign) {
   const combat = new Combat(c.encounter(), c.state.pending!.seed);
@@ -106,7 +117,7 @@ describe('campaña: expedición', () => {
     const c = departed();
     c.move('prado');
     winPending(c);
-    expect(c.loot().ok).toBe(true);
+    expect(withMimic(0, () => c.loot()).ok).toBe(true);
     expect(c.loot().ok).toBe(false);
     expect(c.build('tower').ok).toBe(false);
     expect(c.build('camp').ok).toBe(true);
@@ -116,6 +127,36 @@ describe('campaña: expedición', () => {
     expect(c.status('prado')).toBe('secured');
     expect(c.travelCost('prado')).toBe(CBAL.securedTravel);
     expect(c.recall(spear.id).ok).toBe(true);
+  });
+
+  it('el botín puede ser un mímico: cura un 20 % antes y da más botín al vencerlo', () => {
+    const c = departed();
+    c.move('prado');
+    winPending(c);
+    for (const s of c.party) s.hp = 5;
+    const r = withMimic(1, () => c.loot());
+    expect(r.ok && r.combat?.kind).toBe('mimic');
+    expect(c.state.pending!.foes).toEqual(['mimic']);
+    for (const s of c.party) expect(s.hp).toBe(Math.min(c.maxHp(s), 5 + Math.round(c.maxHp(s) * CBAL.mimic.heal)));
+    expect(c.node('prado').looted).toBe(false);
+    const gold = c.state.exp!.bag.gold;
+    expect(winPending(c).ok).toBe(true);
+    expect(c.node('prado').looted).toBe(true);
+    expect(c.state.exp!.bag.gold).toBeGreaterThan(gold + CBAL.goldPerFoe);
+    expect(c.loot().ok).toBe(false);
+  });
+
+  it('si el grupo huye del mímico, se pierde el botín', () => {
+    const c = departed();
+    c.move('prado');
+    winPending(c);
+    withMimic(1, () => c.loot());
+    const combat = new Combat(c.encounter(), c.state.pending!.seed);
+    combat.start();
+    combat.state.phase = 'fled';
+    expect(c.resolveCombat(combat).ok).toBe(true);
+    expect(c.state.exp!.node).toBe('prado');
+    expect(c.node('prado').looted).toBe(true);
   });
 
   it('explorar revela los nodos vecinos', () => {

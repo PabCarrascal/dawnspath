@@ -116,6 +116,22 @@ export const SKILLS: Record<string, Skill> = {
     desc: '',
     from: [2, 3, 4], target: { side: 'enemy', ranks: [1, 2, 3, 4] }, dmg: 0.6, acc: 0.9, bleed: { amount: 3, turns: 3, chance: 0.85 },
   },
+  // ── Mímico ──
+  bite: {
+    id: 'bite', name: 'Dentellada', icon: '',
+    desc: '',
+    from: [1, 2], target: { side: 'enemy', ranks: [1, 2] }, dmg: 1.1, acc: 0.85, bleed: { amount: 2, turns: 2, chance: 0.5 },
+  },
+  gulp: {
+    id: 'gulp', name: 'Engullir', icon: '',
+    desc: '',
+    from: [1], target: { side: 'enemy', ranks: [1] }, dmg: 0.7, acc: 0.85, stun: 0.4,
+  },
+  glitter: {
+    id: 'glitter', name: 'Brillo del oro', icon: '',
+    desc: '',
+    from: [1, 2, 3, 4], target: { side: 'enemy', ranks: [1, 2, 3, 4], all: true }, stress: 9,
+  },
   // ── Lugarteniente ──
   reap: {
     id: 'reap', name: 'Siega', icon: '',
@@ -152,6 +168,7 @@ export const UNITS: Record<string, Template> = {
   shade: { kind: 'shade', name: 'Sombra', maxHp: 21, speed: 5, dodge: 0.12, prot: 0, acc: 0.05, crit: 0.08, dmg: [5, 8], skills: ['claw', 'whisper'] },
   brute: { kind: 'brute', name: 'Bruto', maxHp: 42, speed: 1, dodge: 0, prot: 0.25, acc: 0.05, crit: 0.08, dmg: [9, 14], skills: ['smash', 'roar'] },
   herald: { kind: 'herald', name: 'Heraldo de la Noche', maxHp: 80, speed: 5, dodge: 0.05, prot: 0.2, acc: 0.05, crit: 0.06, dmg: [8, 12], skills: ['reap', 'dread', 'nightBolt'] },
+  mimic: { kind: 'mimic', name: 'Cofre mímico', maxHp: 36, speed: 4, dodge: 0, prot: 0.3, acc: 0.05, crit: 0.1, dmg: [7, 11], skills: ['bite', 'gulp', 'glitter'] },
   stalker: { kind: 'stalker', name: 'Acechador', maxHp: 19, speed: 7, dodge: 0.15, prot: 0, acc: 0.1, crit: 0.1, dmg: [5, 8], skills: ['dart', 'lunge'] },
 };
 

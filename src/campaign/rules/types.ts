@@ -107,7 +107,7 @@ export interface Expedition {
   days: number;
 }
 
-export type CombatKind = 'node' | 'ambush' | 'road';
+export type CombatKind = 'node' | 'ambush' | 'road' | 'mimic';
 
 export interface PendingCombat {
   kind: CombatKind;

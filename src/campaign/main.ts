@@ -618,7 +618,19 @@ function showNode(mode: Mode = timeOfDay()) {
   on('[data-act="map"]', () => showMap());
   on('[data-act="cancel"]', () => act(c.cancel()) && void fade(showCastle));
   on('[data-act="scout"]', () => act(c.scout(), 'select') && showNode());
-  on('[data-act="loot"]', () => act(c.loot(), 'good') && showNode());
+  on('[data-act="loot"]', () => {
+    const r = c.loot();
+    if (!act(r, r.ok && r.combat ? 'roar' : 'good')) return;
+    if (!r.combat) return showNode();
+    // El cofre era un mímico: aviso y combate.
+    const m = modal(
+      `<h2>¡Un mímico!</h2>
+      <p>${r.log.map((l) => l.text).join(' ')}</p>
+      <div class="cp-buttons"><button class="primary" data-act="ok">¡A las armas!</button></div>`,
+      'narrow',
+    );
+    $('[data-act="ok"]', m).addEventListener('click', () => void fight());
+  });
   on('[data-act="camp-build"]', () => act(c.build('camp'), 'build') && showNode());
   on('[data-act="tower-build"]', () => act(c.build('tower'), 'build') && showNode());
   on('[data-act="guard"]', () => chooseGuard());
@@ -765,7 +777,7 @@ async function fight() {
     ui.innerHTML = '';
   });
   const def = NODE[p.node];
-  const intro = p.kind === 'ambush' ? 'Las brasas apenas alumbran. Están aquí.' : p.kind === 'road' ? 'Nadie vigilaba el camino. Algo os esperaba.' : def.boss ? 'El Heraldo alza la guadaña. El norte entero contiene el aliento.' : undefined;
+  const intro = p.kind === 'ambush' ? 'Las brasas apenas alumbran. Están aquí.' : p.kind === 'road' ? 'Nadie vigilaba el camino. Algo os esperaba.' : p.kind === 'mimic' ? 'El cofre se relame. El oro habrá que ganárselo.' : def.boss ? 'El Heraldo alza la guadaña. El norte entero contiene el aliento.' : undefined;
   const session = await startCombat({
     stage,
     overlay,

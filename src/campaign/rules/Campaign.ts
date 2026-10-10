@@ -549,12 +549,28 @@ export class Campaign {
     if (n.looted || !Object.keys(def.loot).length) return fail('No queda nada que saquear.');
     const noLight = this.spend(CBAL.lootHours);
     if (noLight) return fail(noLight);
-    n.looted = true;
+    // Donde ya hubo combate, el cofre puede ser un mímico: el grupo toma aliento y pelea por el botín.
+    if (n.everCleared && this.rng.chance(CBAL.mimic.chance)) {
+      for (const s of this.party) s.hp = Math.min(this.maxHp(s), s.hp + Math.round(this.maxHp(s) * CBAL.mimic.heal));
+      const combat = this.startCombat('mimic', e.node, ['mimic'], false);
+      const pct = Math.round(CBAL.mimic.heal * 100);
+      return { ok: true, log: [{ text: `¡El cofre abre la boca! Es un mímico. El grupo recobra el aliento (+${pct} % de vida) y se prepara.`, tone: 'bad' }], combat };
+    }
+    const log = this.takeLoot(e.node, 1);
+    this.sync();
+    return { ok: true, log };
+  }
+
+  /** Reparte el botín de un nodo (`mult` lo aumenta, p. ej. tras vencer a un mímico). */
+  private takeLoot(node: string, mult: number): LogLine[] {
+    const e = this.state.exp!;
+    const def = NODE[node];
+    this.node(node).looted = true;
     const got: Partial<Resources> = {};
     for (const k of RES) {
       const v = def.loot[k];
       if (!v) continue;
-      got[k] = Math.round(v * (0.8 + this.rng.next() * 0.4));
+      got[k] = Math.round(v * mult * (0.8 + this.rng.next() * 0.4));
       e.bag[k] += got[k]!;
     }
     const log: LogLine[] = [{ text: `Botín: ${formatRes(got)}.`, tone: 'good' }];
@@ -563,8 +579,7 @@ export class Campaign {
       for (const s of this.party) s.stress = clamp(s.stress + 8, 0, 200);
       log.push({ text: 'Un derrumbe entre los muros: +8 de estrés al grupo.', tone: 'bad' });
     }
-    this.sync();
-    return { ok: true, log };
+    return log;
   }
 
   build(kind: Structure): ActionResult {
@@ -666,7 +681,7 @@ export class Campaign {
     const def = NODE[p.node];
     return {
       id: `${p.kind}-${p.node}`,
-      name: p.kind === 'ambush' ? `Emboscada en ${def.name}` : p.kind === 'road' ? `Asalto en ${def.name}` : def.name,
+      name: p.kind === 'ambush' ? `Emboscada en ${def.name}` : p.kind === 'road' ? `Asalto en ${def.name}` : p.kind === 'mimic' ? `Mímico en ${def.name}` : def.name,
       desc: '',
       party,
       foes: p.foes,
@@ -734,6 +749,10 @@ export class Campaign {
         log.push({ text: `El ${def.name.toLowerCase()} se derrumba. La oscuridad retrocede y tardará más en volver.`, tone: 'good' });
       }
       if (p.kind !== 'ambush') e.hours = Math.max(0, e.hours - CBAL.combatHours);
+      if (p.kind === 'mimic') {
+        log.push({ text: 'El mímico escupe todo lo que se había tragado.', tone: 'good' });
+        log.push(...this.takeLoot(p.node, CBAL.mimic.lootBonus));
+      }
       if (def.boss) return this.win(log);
       // Tras un combate solo salen los sucesos propios del lugar (aldea liberada, ermita).
       if (p.kind === 'node') this.rollEvent(p.node, false);
@@ -744,6 +763,10 @@ export class Campaign {
           ? { text: `${downed.name} cae abatido. El grupo se retira cargando con él.`, tone: 'bad' }
           : { text: 'El grupo se retira.', tone: 'bad' },
       );
+      if (p.kind === 'mimic') {
+        n.looted = true;
+        log.push({ text: 'El mímico se escabulle con el botín dentro.', tone: 'bad' });
+      }
       if (e.prev && p.kind === 'node') {
         e.node = e.prev;
         e.prev = null;

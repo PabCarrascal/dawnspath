@@ -9,7 +9,7 @@ export const POSE_FRAME: Record<Exclude<Pose, 'idle'>, number> = { attack: 2, hu
 const OUTLINE = 0x1a1220;
 const SKIN = [0xf2c8a0, 0xd8a078];
 
-export type SpriteKind = 'hero' | 'spearman' | 'archer' | 'chaplain' | 'shade' | 'brute' | 'stalker' | 'herald' | 'villager' | 'smith' | 'chicken';
+export type SpriteKind = 'hero' | 'spearman' | 'archer' | 'chaplain' | 'shade' | 'brute' | 'stalker' | 'herald' | 'mimic' | 'villager' | 'smith' | 'chicken';
 
 /** Tamaño de cada cuadro en píxeles; los pies quedan siempre en la última fila. */
 export const SPRITE_SIZE: Record<SpriteKind, [number, number]> = {
@@ -21,6 +21,7 @@ export const SPRITE_SIZE: Record<SpriteKind, [number, number]> = {
   brute: [48, 48],
   stalker: [44, 34],
   herald: [44, 58],
+  mimic: [36, 34],
   villager: [32, 40],
   smith: [32, 40],
   chicken: [14, 12],
@@ -394,6 +395,44 @@ function drawHerald(p: Px, dy: number, atk = false) {
   }
 }
 
+/** Cofre mímico: la tapa se abre como una boca con dientes, ojos y lengua. Al atacar se abre del todo. */
+function drawMimic(p: Px, dy: number, atk = false) {
+  const wood = [0xa8743e, 0x80542a, 0x553418];
+  const mouth = 0x3a0612;
+  const tooth = 0xf4ecd8;
+  // Tapa abisagrada atrás (izquierda): se abre hacia la derecha, más al morder.
+  const slope = atk ? 0.75 : 0.32 + dy * 0.06;
+  const lidBottom = (x: number) => Math.round(19 - (x - 4) * slope);
+  for (let x = 4; x <= 30; x++) {
+    const b = lidBottom(x);
+    for (let y = b + 1; y < 20; y++) p.set(x, y, mouth);
+    p.rect(x, b - 5, 1, 5, x < 6 ? wood[0] : x > 27 ? wood[2] : wood[1]);
+    p.set(x, b - 5, wood[0]);
+    if (x % 3 === 0 && x > 5) p.set(x, b + 1, tooth);
+    if (x === 10 || x === 24) p.rect(x, b - 5, 2, 5, 0xd8a83a);
+  }
+  // Ojos que brillan dentro de la boca
+  const ey = Math.round((lidBottom(16) + 20) / 2);
+  p.rect(13, ey, 2, 2, 0xffe060);
+  p.rect(18, ey - 1, 2, 2, 0xffe060);
+  // Caja con flejes dorados y cerradura
+  shaded(p, 4, 20, 27, 13, wood);
+  for (let x = 5; x < 30; x += 3) p.set(x, 20, tooth);
+  for (const x of [9, 23]) p.rect(x, 20, 2, 13, 0xd8a83a);
+  p.rect(27, 23, 3, 4, 0xffe08a);
+  p.set(28, 25, 0x3a2a10);
+  p.rect(4, 26, 27, 1, wood[2]);
+  // Lengua colgando por delante
+  const tongue = [0xe0607a, 0xb83a5a];
+  if (atk) {
+    p.rect(26, 16, 8, 3, tongue[0]);
+    p.rect(32, 18, 3, 4, tongue[1]);
+  } else {
+    p.rect(27, 19, 5, 2, tongue[0]);
+    p.rect(30, 21, 2, 3 + dy, tongue[1]);
+  }
+}
+
 // ───────────────────────── gente del castillo ─────────────────────────
 
 function drawVillager(p: Px, dy: number) {
@@ -455,6 +494,7 @@ const DRAW: Record<SpriteKind, (p: Px, dy: number, atk: boolean) => void> = {
   brute: drawBrute,
   stalker: drawStalker,
   herald: drawHerald,
+  mimic: drawMimic,
   villager: drawVillager,
   smith: drawSmith,
   chicken: drawChicken,
