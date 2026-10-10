@@ -223,9 +223,7 @@ button.night,
 .cb-name {
   font-size: 19px;
 }
-.cb-stats b {
-  color: var(--bone);
-}
+
 .cb-forecast b {
   color: var(--gold-bright);
 }
@@ -457,9 +455,7 @@ em.affl,
   font-family: var(--serif);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
 }
-.cp-levels li.cur {
-  color: var(--gold-bright);
-}
+
 .cp-row {
   border-bottom-color: rgba(212, 178, 94, 0.22);
 }
@@ -560,9 +556,6 @@ em.affl,
 .cb-name {
   font-size: 16px !important;
   line-height: 1.15;
-}
-.cb-stats {
-  font-size: 12.5px;
 }
 
 /* Fichas bajo los pies en la maqueta: vida verde (roja en los enemigos) y estrés violeta */

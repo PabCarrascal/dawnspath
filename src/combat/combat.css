@@ -252,7 +252,6 @@ body {
   padding: 10px 14px;
   border: 1px solid var(--panel-edge);
   background: var(--panel);
-  min-height: 132px;
   opacity: 0;
   transition: opacity 0.2s;
 }
@@ -307,18 +306,7 @@ body {
 .bar.stress > i {
   background: var(--bone);
 }
-.cb-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2px 10px;
-  margin-top: 8px;
-  font-size: 13px;
-  color: var(--bone-dim);
-}
-.cb-stats b {
-  color: var(--bone);
-  font-weight: 400;
-}
+
 .cb-forecast {
   display: flex;
   flex-wrap: wrap;

@@ -514,7 +514,7 @@ export class Campaign {
       s.affliction = null;
     }
     this.sync();
-    return { ok: true, log: [{ text: `La llama del alba os reconforta: vida, temple y ${-CBAL.pray.stress} menos de estrés. ${n.uses ? `Le quedan ${n.uses} rezos.` : 'La llama se apaga.'}`, tone: 'good' }] };
+    return { ok: true, log: [{ text: n.uses ? 'La llama del alba os reconforta.' : 'La llama os reconforta y se apaga.', tone: 'good' }] };
   }
 
   /** Explora los nodos vecinos: revela qué los defiende. */
@@ -553,8 +553,7 @@ export class Campaign {
     if (n.everCleared && this.rng.chance(CBAL.mimic.chance)) {
       for (const s of this.party) s.hp = Math.min(this.maxHp(s), s.hp + Math.round(this.maxHp(s) * CBAL.mimic.heal));
       const combat = this.startCombat('mimic', e.node, ['mimic'], false);
-      const pct = Math.round(CBAL.mimic.heal * 100);
-      return { ok: true, log: [{ text: `¡El cofre abre la boca! Es un mímico. El grupo recobra el aliento (+${pct} % de vida) y se prepara.`, tone: 'bad' }], combat };
+      return { ok: true, log: [{ text: `Recobráis el aliento (+${Math.round(CBAL.mimic.heal * 100)} % de vida).`, tone: 'good' }], combat };
     }
     const log = this.takeLoot(e.node, 1);
     this.sync();
@@ -577,7 +576,7 @@ export class Campaign {
     // Las ruinas tienen trampas: el miedo cuesta algo de temple.
     if (def.type === 'ruins' && this.rng.chance(0.4)) {
       for (const s of this.party) s.stress = clamp(s.stress + 8, 0, 200);
-      log.push({ text: 'Un derrumbe entre los muros: +8 de estrés al grupo.', tone: 'bad' });
+      log.push({ text: 'Un derrumbe: +8 de estrés.', tone: 'bad' });
     }
     return log;
   }
@@ -720,7 +719,7 @@ export class Campaign {
         s.xp++;
         if (this.level(s) > before) {
           s.hp += 3;
-          log.push({ text: `${s.name} sube a nivel ${this.level(s)}: más vida${this.level(s) >= 2 ? ' y más daño' : ''}.`, tone: 'good' });
+          log.push({ text: `${s.name} sube a nivel ${this.level(s)}.`, tone: 'good' });
         }
       }
     }
@@ -732,7 +731,7 @@ export class Campaign {
       const kills = combat.state.fighters.filter((f) => f.side === 'foe' && !f.alive).length;
       const gold = kills * CBAL.goldPerFoe;
       e.bag.gold += gold;
-      log.push({ text: `Victoria. Botín de las criaturas: ${gold} de oro.`, tone: 'good' });
+      log.push({ text: `Victoria: +${gold} de oro.`, tone: 'good' });
       const def = NODE[p.node];
       if (p.kind === 'node' || n.foes.length) {
         n.foes = [];
@@ -819,7 +818,7 @@ export class Campaign {
         s.stress = clamp(s.stress + CBAL.hunger.stress, 0, 200);
         s.hp = Math.max(1, s.hp - CBAL.hunger.hp);
       }
-      log.push({ text: `No hay víveres para todos: hambre, +${CBAL.hunger.stress} de estrés y heridas.`, tone: 'bad' });
+      log.push({ text: `Hambre: +${CBAL.hunger.stress} de estrés y heridas.`, tone: 'bad' });
     }
 
     log.push(...this.remoteNight(e.node));
@@ -972,7 +971,7 @@ export class Campaign {
     if (rest.rough) {
       const stress = rest.torch ? CBAL.rest.rough.torchStress : CBAL.rest.rough.stress;
       for (const s of this.party) s.stress = clamp(s.stress + stress, 0, 200);
-      lines.push({ text: `Una noche al raso${rest.torch ? ' (la antorcha ayuda)' : ''}: +${stress} de estrés y menos luz mañana.`, tone: 'bad' });
+      lines.push({ text: `Noche al raso: +${stress} de estrés.`, tone: 'bad' });
     } else {
       for (const s of this.party) {
         s.hp = Math.min(this.maxHp(s), s.hp + Math.round(this.maxHp(s) * CBAL.rest.camp.heal));

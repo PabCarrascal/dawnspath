@@ -518,38 +518,7 @@ em.affl {
   font-style: italic;
   color: var(--bone-dim);
 }
-.cp-list {
-  padding-left: 18px;
-  line-height: 1.45;
-}
-.cp-list li {
-  margin: 6px 0;
-}
-.cp-levels {
-  margin: 10px 0;
-  padding-left: 0;
-  list-style: none;
-}
-.cp-levels li {
-  padding: 3px 0 3px 22px;
-  position: relative;
-  color: var(--bone-dim);
-}
-.cp-levels li::before {
-  content: '○';
-  position: absolute;
-  left: 0;
-}
-.cp-levels li.done::before {
-  content: '●';
-  color: var(--gold);
-}
-.cp-levels li.cur {
-  color: var(--gold-bright);
-}
-.cp-levels li.cur::before {
-  content: '◆';
-}
+
 .cp-rows {
   display: grid;
   gap: 6px;

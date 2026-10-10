@@ -112,14 +112,6 @@ export class CombatUi {
       </div>
       <div class="cb-row"><span>Vida</span><b>${f.hp}/${f.maxHp}</b><i class="bar hp"><i style="width:${(f.hp / f.maxHp) * 100}%"></i></i></div>
       ${stress}
-      <div class="cb-stats">
-        <span>Daño <b>${f.dmg[0]}–${f.dmg[1]}</b></span>
-        <span>Vel. <b>${f.speed}</b></span>
-        <span>Esq. <b>${pct(f.dodge)}</b></span>
-        <span>Prot. <b>${pct(f.prot)}</b></span>
-        <span>Crít. <b>${pct(f.crit)}</b></span>
-        <span>Puesto <b>${f.rank}</b></span>
-      </div>
       ${extra}`;
   }
 
@@ -220,17 +212,9 @@ export class CombatUi {
       skill.target.side === 'self'
         ? '<span class="self">a sí mismo</span>'
         : [1, 2, 3, 4].map((r) => `<i class="${skill.target.ranks.includes(r) ? (ally ? 'ally' : 'foe') : ''}"></i>`).join('');
-    const details: string[] = [];
-    if (skill.dmg) details.push(`daño ×${skill.dmg}`);
-    if (skill.acc) details.push(`precisión ${pct(skill.acc)}`);
-    if (skill.heal) details.push(`cura ${skill.heal[0]}–${skill.heal[1]}`);
-    if (skill.stress) details.push(skill.stress > 0 ? `+${skill.stress} estrés` : `alivia ${-skill.stress} de estrés`);
-    if (skill.stun) details.push(`aturdir ${pct(skill.stun)}`);
-    if (skill.push) details.push(`empuja ${skill.push}`);
-    if (skill.target.all) details.push('a todos');
     this.q('skill-info').innerHTML = `
       <div class="cb-ranks"><span class="own">${own}</span><span class="arrow">→</span><span class="tgt ${skill.target.all ? 'all' : ''}">${tgt}</span></div>
-      <div class="cb-desc"><b>${skill.name}</b> · ${skill.desc}${details.length ? `<small>${details.join(' · ')}</small>` : ''}${reason ? `<small class="why">${reason}</small>` : ''}</div>`;
+      <div class="cb-desc"><b>${skill.name}</b> · ${skill.desc}${reason ? `<small class="why">${reason}</small>` : ''}</div>`;
   }
 
   // ───────────────────────── rótulos ─────────────────────────
