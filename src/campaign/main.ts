@@ -191,21 +191,33 @@ function darkHud() {
 
 // ───────────────────────── arranque ─────────────────────────
 
-async function boot() {
-  const unlock = () => audio.unlock();
-  window.addEventListener('pointerdown', unlock, { once: true });
-  window.addEventListener('keydown', unlock, { once: true });
-  showTitle();
+// La pantalla de carga (src/boot) importa este módulo, monta la portada
+// mientras carga y la descubre tras la presentación.
+
+/** Campaña de la portada: la guardada, o una de muestra para pintar el patio. */
+function titleCampaign() {
+  const saved = load();
+  campaign = new Campaign(saved?.seed ?? 1, saved ?? undefined);
+  return saved;
 }
 
-function showTitle() {
-  const saved = load();
-  const preview = new Campaign(saved?.seed ?? 1, saved ?? undefined);
-  campaign = preview;
-  castleScene('dusk');
+/**
+ * Monta la maqueta de la portada detrás de la pantalla de carga, para que
+ * texturas y sombreadores estén listos cuando se descubra.
+ */
+export function prepareTitle() {
+  titleCampaign();
+  return castleScene('dusk');
+}
+
+/** Portada con el menú. Con `reveal`, la cámara baja hacia el patio y los rótulos entran escalonados. */
+export function showTitle(reveal = false) {
+  const saved = titleCampaign();
+  const s = scene && sceneKey === 'castle' && scene.mode === 'dusk' ? scene : castleScene('dusk');
+  if (reveal && !matchMedia('(prefers-reduced-motion: reduce)').matches) s.swoop(1.35, 6000);
   audio.music('castle');
   ui.innerHTML = `
-    <div class="cp-title">
+    <div class="cp-title${reveal ? ' reveal' : ''}">
       <p class="kicker">Dawn's Path · fase 2</p>
       <h1>El Sendero del Alba</h1>
       <p class="lead">Mejora el castillo, prepara expediciones cortas por el sendero y abre paso hasta el Heraldo de la Noche.</p>
@@ -814,5 +826,7 @@ function showEnd() {
 }
 
 if (import.meta.env.DEV) Object.assign(window, { getCampaign: () => campaign });
+// Por si se pulsa antes de que la pantalla de carga pida el gesto.
+window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
+window.addEventListener('keydown', () => audio.unlock(), { once: true });
 mountSoundControl();
-void boot();

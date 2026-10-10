@@ -30,6 +30,10 @@ export class Stage3D {
   private elapsed = 0;
   private framing: Framing;
   private pointerX = 0;
+  /** Acercamiento de la presentación: distancia inicial, tiempo transcurrido y duración (ms). */
+  private swoopFrom = 1;
+  private swoopT = 0;
+  private swoopMs = 0;
   /** Se llama cada fotograma (para recolocar etiquetas HTML sobre la escena). */
   onFrame: (() => void) | null = null;
 
@@ -69,6 +73,13 @@ export class Stage3D {
     if (mode !== this.look.mode) this.look.set(mode);
   }
 
+  /** La cámara empieza `from` veces más lejos y llega al encuadre en `ms`, frenando al final. */
+  swoop(from: number, ms: number) {
+    this.swoopFrom = from;
+    this.swoopT = 0;
+    this.swoopMs = ms;
+  }
+
   /** Coordenadas de pantalla de un punto de la escena. */
   project(v: THREE.Vector3) {
     const p = v.clone().project(this.camera);
@@ -94,7 +105,12 @@ export class Stage3D {
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this.elapsed += dt;
     const f = FRAMES[this.framing];
-    const fit = Math.max(1, 1.7 / this.camera.aspect);
+    let fit = Math.max(1, 1.7 / this.camera.aspect);
+    if (this.swoopT < this.swoopMs) {
+      this.swoopT += dt * 1000;
+      const k = Math.min(1, this.swoopT / this.swoopMs);
+      fit *= this.swoopFrom + (1 - this.swoopFrom) * (1 - (1 - k) ** 3);
+    }
     // Deriva lenta y un leve paralaje con el ratón.
     const sway = Math.sin(this.elapsed * 0.12) * 0.9 + this.pointerX * 0.8;
     this.camera.position.copy(f.focus).add(f.offset.clone().multiplyScalar(fit)).add(new THREE.Vector3(sway, 0, 0));

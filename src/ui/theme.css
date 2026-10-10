@@ -728,3 +728,53 @@ em.affl,
   pointer-events: auto;
   cursor: pointer;
 }
+
+/* ───────────────────────── presentación ───────────────────────── */
+
+/* Tras el prólogo, la portada entra por partes mientras la cámara baja al patio. */
+.cp-title.reveal > * {
+  opacity: 0;
+  animation: title-in 1.2s ease forwards;
+}
+.cp-title.reveal .kicker {
+  animation-delay: 1.4s;
+}
+.cp-title.reveal h1 {
+  animation: title-glow 2.2s ease 0.8s forwards;
+}
+.cp-title.reveal .lead {
+  animation-delay: 2.4s;
+}
+.cp-title.reveal .cp-buttons {
+  animation-delay: 3s;
+}
+.cp-title.reveal .hint {
+  animation-delay: 3.6s;
+}
+@keyframes title-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes title-glow {
+  from {
+    opacity: 0;
+    letter-spacing: 0.22em;
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.04em;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cp-title.reveal > *,
+  .cp-title.reveal h1 {
+    animation-duration: 0.01s;
+    animation-delay: 0s;
+  }
+}

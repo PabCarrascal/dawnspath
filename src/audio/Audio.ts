@@ -34,6 +34,10 @@ const midi = (n: number) => 440 * 2 ** ((n - 69) / 12);
 export type Track = 'castle' | 'road' | 'night' | 'dark' | 'battle' | 'boss';
 /** Fanfarrias de una sola vez. */
 export type Jingle = 'victory' | 'defeat';
+/** Todas las pistas, en el orden en que conviene precargarlas (la de la portada primero). */
+export const ALL_MUSIC: (Track | Jingle)[] = ['castle', 'road', 'battle', 'night', 'dark', 'boss', 'victory', 'defeat'];
+
+const musicUrl = (name: string) => `${import.meta.env.BASE_URL}music/${name}.m4a`;
 
 /** Las pistas ya traen un fundido de salida de 3 s: la siguiente vuelta entra encima. */
 const LOOP_OVERLAP = 3;
@@ -55,6 +59,8 @@ export class AudioEngine {
   private noise!: AudioBuffer;
   private night = 0;
   private buffers = new Map<string, Promise<AudioBuffer | null>>();
+  /** Bytes ya descargados (la pantalla de carga los baja antes de que haya contexto de audio). */
+  private raw = new Map<string, Promise<ArrayBuffer | null>>();
   /** La pista pedida (aunque aún no haya contexto de audio) y la que suena. */
   private want: Track | null = null;
   private playing: Playing | null = null;
@@ -141,12 +147,49 @@ export class AudioEngine {
     this.duck.gain.setTargetAtTime(1, t + buf.duration - 1, 0.8);
   }
 
+  /**
+   * Descarga una pista sin decodificarla (no hace falta contexto de audio).
+   * `onProgress` recibe la fracción descargada, de 0 a 1.
+   */
+  preload(name: string, onProgress?: (f: number) => void) {
+    let p = this.raw.get(name);
+    if (!p) {
+      p = fetch(musicUrl(name))
+        .then(async (r) => {
+          if (!r.ok) throw new Error(r.statusText);
+          const total = Number(r.headers.get('content-length')) || 0;
+          if (!r.body || !total || !onProgress) return r.arrayBuffer();
+          const reader = r.body.getReader();
+          const chunks: Uint8Array[] = [];
+          let got = 0;
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            got += value.length;
+            // Si el servidor comprime, la longitud anunciada no cuadra: se topa en 1.
+            onProgress(Math.min(1, got / total));
+          }
+          const out = new Uint8Array(got);
+          let at = 0;
+          for (const c of chunks) {
+            out.set(c, at);
+            at += c.length;
+          }
+          return out.buffer;
+        })
+        .catch(() => null);
+      this.raw.set(name, p);
+    }
+    void p.then(() => onProgress?.(1));
+    return p;
+  }
+
   private load(name: string) {
     let p = this.buffers.get(name);
     if (!p) {
-      p = fetch(`${import.meta.env.BASE_URL}music/${name}.m4a`)
-        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.statusText))))
-        .then((data) => this.ctx!.decodeAudioData(data))
+      p = this.preload(name)
+        .then((data) => (data ? this.ctx!.decodeAudioData(data) : null))
         .catch(() => null);
       this.buffers.set(name, p);
     }

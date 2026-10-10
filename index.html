@@ -4,12 +4,228 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>El Sendero del Alba</title>
+    <meta name="description" content="Gestiona el castillo del Alba y abre paso por el sendero hasta el Heraldo de la Noche. Combate por turnos en maquetas HD-2D." />
+    <meta name="theme-color" content="#070b1e" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=IM+Fell+English+SC&display=swap"
       rel="stylesheet"
     />
+    <!-- La pantalla de carga va aquí, en línea, para que se pinte antes de que llegue el JS. -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #070b1e;
+      }
+      #boot {
+        --p: 0.03;
+        position: fixed;
+        inset: 0;
+        z-index: 34;
+        overflow: hidden;
+        color: #f3eedf;
+        font-family: 'EB Garamond', Georgia, serif;
+        background: linear-gradient(180deg, #050816 0%, #0b1030 55%, #1a1f45 100%);
+        user-select: none;
+        -webkit-user-select: none;
+        transition: opacity 1.8s ease;
+      }
+      /* El alba: el cielo se aclara, las estrellas se apagan y el sol sube con la carga. */
+      .boot-dawn {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, #23336e 0%, #6a4a8a 38%, #d0708a 66%, #ffb36a 88%, #ffd890 100%);
+        opacity: calc(var(--p) * 0.95);
+      }
+      .boot-stars {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 2px;
+        height: 2px;
+        opacity: calc(1 - var(--p) * 1.1);
+      }
+      .boot-sun {
+        position: absolute;
+        left: 50%;
+        bottom: 14vh;
+        width: 22vh;
+        height: 22vh;
+        margin-left: -11vh;
+        border-radius: 50%;
+        background: radial-gradient(circle, #fff6d6 0 42%, #ffd46a 43% 58%, rgba(255, 190, 90, 0.35) 59% 70%, rgba(255, 170, 80, 0) 71%);
+        box-shadow: 0 0 120px 40px rgba(255, 190, 110, calc(var(--p) * 0.5));
+        transform: translateY(calc((1 - var(--p)) * 24vh));
+      }
+      .boot-land {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 32vh;
+        display: block;
+        width: 100%;
+        shape-rendering: crispEdges;
+      }
+      .boot-land .win {
+        fill: #ffcf6a;
+        opacity: calc(1 - var(--p) * 0.6);
+      }
+      .boot-center {
+        position: absolute;
+        left: 50%;
+        top: 38%;
+        width: min(560px, calc(100vw - 32px));
+        transform: translate(-50%, -50%);
+        text-align: center;
+        transition: opacity 1.2s ease;
+      }
+      .boot-kicker {
+        margin: 0;
+        font-family: 'Cinzel', 'Times New Roman', serif;
+        font-size: 13px;
+        letter-spacing: 0.32em;
+        color: #d4b25e;
+      }
+      .boot-title {
+        margin: 6px 0 26px;
+        font-family: 'Cinzel', 'Times New Roman', serif;
+        font-weight: 700;
+        font-size: clamp(34px, 7vw, 66px);
+        line-height: 1.05;
+        letter-spacing: 0.04em;
+        background: linear-gradient(180deg, #fff6d6 0%, #f0d48a 45%, #b88a34 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 3px 0 rgba(10, 14, 34, 0.9)) drop-shadow(0 0 22px rgba(0, 0, 0, 0.55));
+      }
+      .boot-bar {
+        position: relative;
+        width: min(360px, 80vw);
+        height: 8px;
+        margin: 0 auto;
+        border: 1px solid rgba(212, 178, 94, 0.8);
+        border-radius: 5px;
+        background: rgba(8, 12, 30, 0.75);
+        box-shadow: 0 0 0 1px rgba(8, 12, 30, 0.9), 0 4px 14px rgba(0, 0, 0, 0.4);
+        overflow: hidden;
+      }
+      .boot-bar i {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: calc(var(--p) * 100%);
+        background: linear-gradient(180deg, #fbe7a6, #e2bf68 50%, #b88e3c);
+        box-shadow: 0 0 12px rgba(246, 220, 140, 0.7);
+      }
+      .boot-status {
+        min-height: 1.4em;
+        margin: 12px 0 0;
+        font-size: 17px;
+        font-style: italic;
+        color: rgba(243, 238, 223, 0.75);
+      }
+      .boot-prompt {
+        margin: 26px 0 0;
+        font-family: 'Cinzel', 'Times New Roman', serif;
+        font-size: 15px;
+        letter-spacing: 0.18em;
+        color: #f6dc8c;
+        opacity: 0;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      }
+      .boot-prompt .touch {
+        display: none;
+      }
+      @media (hover: none) {
+        .boot-prompt .keys {
+          display: none;
+        }
+        .boot-prompt .touch {
+          display: inline;
+        }
+      }
+      #boot.ready {
+        cursor: pointer;
+      }
+      #boot.ready .boot-prompt {
+        animation: boot-blink 2.2s ease-in-out infinite;
+      }
+      #boot.ready .boot-bar,
+      #boot.ready .boot-status {
+        opacity: 0.55;
+      }
+      @keyframes boot-blink {
+        0%,
+        100% {
+          opacity: 0.35;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+      #boot.error .boot-status {
+        color: #ff9a8a;
+        font-style: normal;
+      }
+      /* Presentación: fundido a negro y unas líneas de historia. */
+      .boot-story {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 0 24px;
+        background: #000;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 1.4s ease;
+      }
+      #boot.story .boot-story {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .boot-line {
+        max-width: 640px;
+        margin: 0;
+        font-size: clamp(20px, 3vw, 28px);
+        font-style: italic;
+        line-height: 1.45;
+        text-align: center;
+        color: #e8e0cc;
+        opacity: 0;
+        transform: translateY(6px);
+        transition:
+          opacity 1s ease,
+          transform 1.4s ease;
+      }
+      .boot-line.on {
+        opacity: 1;
+        transform: none;
+      }
+      .boot-skip {
+        position: absolute;
+        right: 22px;
+        bottom: 18px;
+        margin: 0;
+        font-size: 14px;
+        color: rgba(243, 238, 223, 0.45);
+      }
+      #boot.out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .boot-sun {
+          transition: none;
+        }
+        #boot.ready .boot-prompt {
+          animation: none;
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="stage"></div>
@@ -18,6 +234,50 @@
     <div id="modals"></div>
     <div id="toasts"></div>
     <div id="fade"></div>
-    <script type="module" src="/src/campaign/main.ts"></script>
+
+    <div id="boot" role="status" aria-live="polite">
+      <div class="boot-dawn"></div>
+      <div class="boot-stars"></div>
+      <div class="boot-sun"></div>
+      <!-- Silueta del castillo del Alba recortada contra el horizonte -->
+      <svg class="boot-land" viewBox="0 0 320 96" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <path fill="#1a1530" d="M0 70 L40 62 L80 66 L120 58 L200 58 L240 64 L280 60 L320 66 V96 H0 Z" />
+        <g fill="#0c0a1c">
+          <rect x="104" y="52" width="112" height="44" />
+          <rect x="104" y="48" width="6" height="4" /><rect x="116" y="48" width="6" height="4" /><rect x="128" y="48" width="6" height="4" />
+          <rect x="186" y="48" width="6" height="4" /><rect x="198" y="48" width="6" height="4" /><rect x="210" y="48" width="6" height="4" />
+          <rect x="94" y="36" width="16" height="60" />
+          <rect x="92" y="32" width="4" height="4" /><rect x="100" y="32" width="4" height="4" /><rect x="108" y="32" width="4" height="4" />
+          <rect x="210" y="36" width="16" height="60" />
+          <rect x="208" y="32" width="4" height="4" /><rect x="216" y="32" width="4" height="4" /><rect x="224" y="32" width="4" height="4" />
+          <rect x="146" y="26" width="28" height="70" />
+          <polygon points="142,26 160,6 178,26" />
+          <rect x="159" y="0" width="2" height="8" />
+          <rect x="161" y="1" width="7" height="4" />
+          <rect x="0" y="80" width="320" height="16" />
+        </g>
+        <g class="win">
+          <rect x="157" y="34" width="6" height="8" />
+          <rect x="100" y="44" width="4" height="5" />
+          <rect x="216" y="44" width="4" height="5" />
+          <rect x="128" y="62" width="4" height="5" />
+          <rect x="188" y="62" width="4" height="5" />
+          <rect x="155" y="70" width="10" height="10" />
+        </g>
+      </svg>
+      <div class="boot-center">
+        <p class="boot-kicker">Dawn's Path</p>
+        <h1 class="boot-title">El Sendero del Alba</h1>
+        <div class="boot-bar"><i></i></div>
+        <p class="boot-status">Encendiendo las antorchas…</p>
+        <p class="boot-prompt"><span class="keys">Pulsa cualquier tecla para empezar</span><span class="touch">Toca la pantalla para empezar</span></p>
+      </div>
+      <div class="boot-story">
+        <p class="boot-line"></p>
+        <p class="boot-skip">Pulsa para saltar</p>
+      </div>
+    </div>
+
+    <script type="module" src="/src/boot/boot.ts"></script>
   </body>
 </html>

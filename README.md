@@ -40,7 +40,7 @@ npm run deploy       # build y subida de dist/ al servidor por rsync
 
 | Página | Qué es |
 | --- | --- |
-| `/` | El juego. `?partida=nombre` usa otra ranura de guardado. |
+| `/` | El juego: carga al amanecer, prólogo con la música del castillo y portada. `?partida=nombre` usa otra ranura de guardado. |
 | `/combat.html` | Banco de pruebas del combate en la maqueta. `?enc=skirmish\|patrol\|ambush&seed=123`; `?vista=2d` para la escena lateral antigua. |
 | `/style.html` | Galería de maquetas: los 11 biomas en los cuatro ambientes. `?bioma=forest\|meadow\|…&hora=day\|dusk\|night\|dark` |
 
@@ -48,6 +48,7 @@ npm run deploy       # build y subida de dist/ al servidor por rsync
 
 ```
 src/
+  boot/       pantalla de carga y presentación: precarga fuentes, música y código, y monta la portada
   core/       PRNG con semilla y animaciones con promesas
   audio/      reproducción de la banda sonora (public/music) y efectos sintetizados con WebAudio
   combat/     rules/ motor del combate, session.ts bucle jugable, view/ escena 2D antigua (PixiJS)
