@@ -715,6 +715,7 @@ function showMap() {
         <li><i class="st-hostile"></i>Hostil</li>
         <li><i class="st-cleared"></i>Limpio</li>
         <li><i class="st-secured"></i>Asegurado</li>
+        <li><i class="st-safe">⛨</i>Retaguardia</li>
         <li><i class="st-lost"></i>Perdido</li>
       </ul>
       <div class="cp-buttons"><button data-act="close">Cerrar</button></div>

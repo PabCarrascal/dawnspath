@@ -903,6 +903,29 @@ em.affl {
   background: #d8b8a0;
   border: 2.5px dashed #a12a1a;
 }
+/* Retaguardia: el escudo sobre un resplandor cálido */
+.cp-legend i.st-safe {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: radial-gradient(circle, rgba(255, 214, 120, 0.9), rgba(255, 214, 120, 0));
+  color: #5a4210;
+  font-style: normal;
+  font-size: 13px;
+}
+.cp-map-frame .safe {
+  fill: rgba(255, 210, 110, 0.28);
+  stroke: rgba(201, 162, 74, 0.55);
+  stroke-width: 1.5;
+}
+.cp-map-frame .shield {
+  font-size: 30px;
+  text-anchor: middle;
+  fill: #6a4e14;
+  stroke: #f4e4b0;
+  stroke-width: 3;
+  paint-order: stroke;
+}
 
 @media (max-width: 1000px) {
   .cp-panel {

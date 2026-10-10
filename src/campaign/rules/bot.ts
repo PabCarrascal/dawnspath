@@ -42,11 +42,16 @@ export interface BotSummary {
   buildings: Record<BuildingId, number>;
 }
 
+/** Estilo del bot. `guards`: deja guardias en los nodos que lindan con criaturas, para ir cerrando el frente. */
+export interface BotStyle {
+  guards?: boolean;
+}
+
 /**
  * Bot sencillo que juega la campaña entera: prepara, sale, avanza hacia el
  * lugarteniente, saquea, acampa y vuelve cuando el grupo flaquea.
  */
-export function playCampaign(seed: number, maxDays = 80): BotSummary {
+export function playCampaign(seed: number, maxDays = 80, style: BotStyle = {}): BotSummary {
   const c = new Campaign(seed);
   const s = c.state;
   let maxDark = 0;
@@ -57,7 +62,7 @@ export function playCampaign(seed: number, maxDays = 80): BotSummary {
       const combat = new Combat(c.encounter(), s.pending.seed);
       autoplay(combat);
       c.resolveCombat(combat);
-    } else roadTurn(c);
+    } else roadTurn(c, style);
   }
   return {
     result: s.phase === 'won' ? 'won' : s.phase === 'lost' ? 'lost' : 'timeout',
@@ -112,7 +117,7 @@ function weak(c: Campaign, x: Soldier) {
   return x.hp < c.maxHp(x) * 0.4 || x.stress >= 70 || !!x.affliction;
 }
 
-function roadTurn(c: Campaign) {
+function roadTurn(c: Campaign, style: BotStyle) {
   const st = c.state;
   // Sucesos: la primera opción que se pueda pagar.
   if (st.event) {
@@ -142,6 +147,12 @@ function roadTurn(c: Campaign) {
 
   if (!goHome && !here.foes.length && !here.looted && Object.keys(def.loot).length && e.hours >= CBAL.lootHours) {
     if (c.loot().ok) return;
+  }
+  // Frente: de vuelta al castillo, deja de guardia a alguien sano en un nodo que linda con criaturas.
+  const borders = def.links.some((l) => c.node(l).foes.length > 0 || c.node(l).dark);
+  if (style.guards && goHome && borders && !here.foes.length && !here.garrison.length && !def.village && e.node !== 'castle' && party.length >= 3) {
+    const guard = party.filter((x) => x.kind !== 'hero' && !weak(c, x) && x.hp >= c.maxHp(x) * 0.7).sort((a, b) => b.hp - a.hp)[0];
+    if (guard && (here.structure || c.build('camp').ok) && c.garrison(guard.id).ok) return;
   }
   if (e.hours < c.travelCost(step)) {
     if (!c.sheltered(e.node) && e.node !== 'castle') c.build('camp');

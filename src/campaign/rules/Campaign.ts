@@ -134,6 +134,33 @@ export class Campaign {
     return n.structure && n.garrison.length ? 'secured' : 'cleared';
   }
 
+  /**
+   * Nodos a los que pueden llegar las criaturas: se parte de cada nodo con
+   * criaturas u oscuridad y se avanza por los caminos sin cruzar los nodos con
+   * guardia. Lo que queda fuera es retaguardia: ni se retoma ni hay emboscadas.
+   */
+  exposed(): Set<string> {
+    const reached = new Set<string>();
+    const queue = MAP.filter((d) => this.node(d.id).foes.length > 0 || this.node(d.id).dark).map((d) => d.id);
+    while (queue.length) {
+      const id = queue.pop()!;
+      if (reached.has(id) || id === 'castle' || this.node(id).garrison.length) continue;
+      reached.add(id);
+      queue.push(...NODE[id].links);
+    }
+    return reached;
+  }
+
+  /** Retaguardia: nodos limpios que ningún camino de las criaturas alcanza sin pasar por una guardia. */
+  shielded(id: string, exposed = this.exposed()) {
+    return id !== 'castle' && !exposed.has(id) && !this.node(id).garrison.length && !this.node(id).foes.length;
+  }
+
+  /** Guarnición en primera línea: linda con algún nodo expuesto. */
+  frontline(id: string, exposed = this.exposed()) {
+    return this.node(id).garrison.length > 0 && NODE[id].links.some((l) => exposed.has(l));
+  }
+
   /** Duerme a cubierto: campamento, torre o una aldea libre. */
   sheltered(id: string) {
     const n = this.node(id);
@@ -351,7 +378,7 @@ export class Campaign {
       log.push({ text: n.dark ? 'La oscuridad cubre el lugar. Aquí siempre es de noche.' : firstTime ? 'Hay criaturas esperando.' : 'Las criaturas guardan el paso.', tone: 'bad' });
       return { ok: true, log, combat: this.startCombat('node', to, n.foes, false) };
     }
-    if (this.status(to) === 'cleared' && NODE[to].type !== 'village' && this.rng.chance(n.dark ? CBAL.roadAmbush * 2 : CBAL.roadAmbush)) {
+    if (this.status(to) === 'cleared' && NODE[to].type !== 'village' && !this.shielded(to) && this.rng.chance(n.dark ? CBAL.roadAmbush * 2 : CBAL.roadAmbush)) {
       log.push({ text: 'Sin nadie de guardia, algo os acechaba entre la maleza.', tone: 'bad' });
       return { ok: true, log, combat: this.startCombat('road', to, NIGHT_FOES[0], false) };
     }
@@ -913,12 +940,16 @@ export class Campaign {
   /** La noche en el resto del sendero: guarniciones atacadas y nodos que se pierden. */
   private remoteNight(except: string | null): LogLine[] {
     const log: LogLine[] = [];
+    // Se calcula una vez: lo que cae esta noche no abre camino hasta la siguiente.
+    const exposed = this.exposed();
     for (const def of MAP) {
       if (def.id === 'castle' || def.id === except) continue;
       const n = this.node(def.id);
       if (n.foes.length || !n.everCleared) continue;
-      if (n.garrison.length) log.push(...this.nightAttack(def.id));
-      else if ((n.dark || !def.links.includes('castle')) && this.rng.chance(n.dark ? CBAL.retake * 2 : CBAL.retake)) {
+      // Solo se ataca a la primera línea; tras ella, la retaguardia está a salvo.
+      if (n.garrison.length) {
+        if (this.frontline(def.id, exposed)) log.push(...this.nightAttack(def.id, CBAL.front.extra, false, CBAL.front.attack));
+      } else if (exposed.has(def.id) && (n.dark || !def.links.includes('castle')) && this.rng.chance(n.dark ? CBAL.retake * 2 : CBAL.retake)) {
         n.foes = [...def.regen];
         const burnt = n.structure;
         n.structure = null;
@@ -929,10 +960,10 @@ export class Campaign {
   }
 
   /** Ataque nocturno a una guarnición, resuelto sin escena. */
-  private nightAttack(id: string, extra = 0, force = false): LogLine[] {
+  private nightAttack(id: string, extra = 0, force = false, chanceMult = 1): LogLine[] {
     const n = this.node(id);
     const def = NODE[id];
-    if (!force && !this.rng.chance(n.dark ? CBAL.garrisonAttack * 1.5 : CBAL.garrisonAttack)) return [];
+    if (!force && !this.rng.chance((n.dark ? CBAL.garrisonAttack * 1.5 : CBAL.garrisonAttack) * chanceMult)) return [];
     const guards = n.garrison.map((g) => this.soldier(g)!);
     const structure = n.structure ? STRUCTURES[n.structure].defense + (n.structure === 'tower' && this.state.buildings.lodge >= 3 ? 0.5 : 0) : 0;
     const defense = structure + guards.reduce((a, s) => a + (1 + this.level(s) * 0.25) * (0.5 + (0.5 * s.hp) / this.maxHp(s)) * (s.affliction ? 0.7 : 1), 0);

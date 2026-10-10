@@ -299,6 +299,98 @@ describe('campaña: oscuridad', () => {
   });
 });
 
+/** Nodo limpio, con o sin campamento y guardia (montado a mano, sin pasar por el viaje). */
+function hold(c: Campaign, id: string, guard?: string) {
+  const n = c.node(id);
+  n.foes = [];
+  n.seen = true;
+  n.everCleared = true;
+  n.dark = false;
+  if (guard) {
+    n.structure = 'camp';
+    n.garrison = [guard];
+    const s = c.soldier(guard)!;
+    s.where = 'garrison';
+    s.post = id;
+  }
+}
+
+/** Ejecuta `fn` con otro valor de una probabilidad del equilibrio y la restaura. */
+function withBal<T>(key: 'retake' | 'roadAmbush' | 'garrisonAttack', v: number, fn: () => T): T {
+  const before = CBAL[key];
+  CBAL[key] = v;
+  try {
+    return fn();
+  } finally {
+    CBAL[key] = before;
+  }
+}
+
+const night = (c: Campaign) => (c as unknown as { remoteNight: (x: string | null) => unknown }).remoteNight(null);
+
+describe('campaña: retaguardia', () => {
+  it('tras una línea de guardias, los nodos no se retoman', () => {
+    const c = new Campaign(1);
+    const [, spear, archer] = c.state.soldiers;
+    hold(c, 'prado');
+    hold(c, 'robledal');
+    hold(c, 'bosque', spear.id);
+    hold(c, 'ruinas', archer.id);
+    expect(c.shielded('robledal')).toBe(true);
+    expect(c.shielded('prado')).toBe(true);
+    expect(c.exposed().has('vado')).toBe(true);
+    // Mientras la línea aguante (sin ataques a las guarniciones), detrás no vuelve nadie.
+    withBal('garrisonAttack', 0, () =>
+      withBal('retake', 1, () => {
+        for (let k = 0; k < 10; k++) night(c);
+      }),
+    );
+    expect(c.node('robledal').foes).toEqual([]);
+  });
+
+  it('una sola guardia no basta si queda otro camino abierto', () => {
+    const c = new Campaign(1);
+    const [, spear] = c.state.soldiers;
+    hold(c, 'prado');
+    hold(c, 'bosque');
+    hold(c, 'vado', spear.id);
+    // Las ruinas siguen con criaturas: por ahí llegan al prado y al bosque.
+    expect(c.shielded('bosque')).toBe(false);
+    withBal('retake', 1, () => night(c));
+    expect(c.node('bosque').foes.length).toBeGreaterThan(0);
+  });
+
+  it('cruzar la retaguardia no tiene emboscadas', () => {
+    const c = departed();
+    const [, spear, archer] = c.state.soldiers;
+    hold(c, 'prado');
+    hold(c, 'robledal');
+    hold(c, 'bosque', spear.id);
+    hold(c, 'ruinas', archer.id);
+    c.state.exp!.party = [c.hero.id];
+    const r = withBal('roadAmbush', 1, () => c.move('prado'));
+    expect(r.ok && r.combat).toBeFalsy();
+  });
+
+  it('solo se ataca a las guarniciones de primera línea', () => {
+    const c = new Campaign(1);
+    const [, spear, archer] = c.state.soldiers;
+    hold(c, 'prado');
+    hold(c, 'robledal', archer.id);
+    hold(c, 'bosque', spear.id);
+    hold(c, 'ruinas');
+    c.node('ruinas').garrison = [];
+    hold(c, 'ruinas', c.hero.id);
+    expect(c.frontline('bosque')).toBe(true);
+    expect(c.frontline('robledal')).toBe(false);
+    const hp = c.soldier(archer.id)!.hp;
+    // Una noche: si cae la primera línea, a la siguiente la retaguardia queda expuesta.
+    withBal('garrisonAttack', 1, () => night(c));
+    expect(c.soldier(archer.id)!.hp).toBe(hp);
+    expect(c.node('robledal').garrison).toEqual([archer.id]);
+  });
+});
+
 describe('campaña: aldeas, ermitas y sucesos', () => {
   it('la aldea vende víveres, da cobijo y ofrece un recluta', () => {
     const c = departed();

@@ -227,6 +227,7 @@ export class MapView {
     let fog = '';
     let nodes = '';
     const frontier = c.darkFrontier();
+    const exposed = c.exposed();
     for (const n of MAP) {
       const st = c.status(n.id);
       const ns = c.node(n.id);
@@ -237,16 +238,20 @@ export class MapView {
       const front = frontier.includes(n.id) ? `<circle class="frontier" cx="${n.x}" cy="${n.y}" r="40" />` : '';
       const struct = ns.structure ? `<text class="struct" x="${n.x + 30}" y="${n.y - 18}">${ns.structure === 'tower' ? '♜' : '△'}</text>` : '';
       const guards = ns.garrison.length ? `<text class="guards" x="${n.x + 30}" y="${n.y + 2}">${'⚑'.repeat(ns.garrison.length)}</text>` : '';
+      // Retaguardia: un resplandor cálido y un escudo pequeño.
+      const safe = st === 'cleared' && c.shielded(n.id, exposed);
+      const glow = safe ? `<circle class="safe" cx="${n.x}" cy="${n.y}" r="44" />` : '';
+      const shield = safe ? `<text class="shield" x="${n.x - 30}" y="${n.y - 12}">⛨</text>` : '';
       const foes = st === 'hostile' || st === 'lost' ? `<text class="foes" x="${n.x - 34}" y="${n.y - 18}">${'☠'.repeat(Math.min(4, ns.foes.length))}</text>` : '';
       const cost = canGo ? `<text class="cost" x="${n.x}" y="${n.y + 58}">${c.travelCost(n.id)} h</text>` : '';
       nodes += `
         <g class="node st-${st} ${canGo ? 'reach' : ''} ${here === n.id ? 'here' : ''} ${n.boss ? 'boss' : ''} ${ns.dark ? 'is-dark' : ''}" data-id="${n.id}">
-          ${front}
+          ${front}${glow}
           <circle class="halo" cx="${n.x}" cy="${n.y}" r="34" />
           <circle class="disc" cx="${n.x}" cy="${n.y}" r="26" />
           <g class="glyph" transform="translate(${n.x} ${n.y})">${st === 'unknown' ? '<text class="q" y="10">?</text>' : GLYPH[n.type]}</g>
           <text class="name" x="${n.x}" y="${n.y + 44}">${st === 'unknown' ? '· · ·' : n.name}</text>
-          ${cost}${struct}${guards}${foes}
+          ${cost}${struct}${guards}${foes}${shield}
         </g>`;
     }
     const h = NODE[here];
@@ -280,7 +285,8 @@ export class MapView {
     if (def.village && !ns.foes.length) lines.push(`<p class="good">Aldea: víveres a ${c.villagePrice(id)} de oro, cobijo para dormir${ns.uses ? '' : ` y ${def.village.name} dispuesto a unirse`}.</p>`);
     if (def.type === 'shrine' && !ns.foes.length && st !== 'unknown') lines.push(`<p class="good">Ermita: ${ns.uses ? `quedan ${ns.uses} rezos` : 'la llama se ha apagado'}.</p>`);
     if (ns.structure) lines.push(`<p>${STRUCTURES[ns.structure].name}${ns.garrison.length ? ` · ${ns.garrison.length} de guardia: ${ns.garrison.map((g) => c.soldier(g)?.name).join(', ')}` : ' · sin guardia'}</p>`);
-    if (st === 'cleared' && id !== 'castle' && def.type !== 'village') lines.push('<p class="warn">Sin guardia: de noche las criaturas pueden retomarlo y al cruzarlo hay riesgo de emboscada.</p>');
+    if (st === 'cleared' && c.shielded(id)) lines.push('<p class="good">Retaguardia: a salvo.</p>');
+    else if (st === 'cleared' && id !== 'castle' && def.type !== 'village') lines.push('<p class="warn">Sin guardia: pueden retomarlo.</p>');
     if (st === 'secured') lines.push('<p class="good">Asegurado: se cruza en 1 hora y sin riesgo.</p>');
     if (st !== 'unknown' && !ns.foes.length && !ns.looted && Object.keys(def.loot).length && id !== 'castle') lines.push('<p class="good">Queda botín por saquear.</p>');
     if (reach) lines.push(`<p class="go">Clic para viajar · ${c.travelCost(id)} h de luz</p>`);

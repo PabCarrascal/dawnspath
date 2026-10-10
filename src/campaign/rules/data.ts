@@ -21,6 +21,8 @@ export const CBAL = {
   roadAmbush: 0.2,
   /** Probabilidad de que las criaturas retomen un nodo limpio sin guardia (los vecinos del castillo no). */
   retake: 0.2,
+  /** Guarniciones en primera línea (lindan con nodos expuestos): más ataques y más fuertes. Las de retaguardia no se atacan. */
+  front: { attack: 1.4, extra: 0.4 },
   /** Probabilidad de ataque nocturno a una guarnición. */
   garrisonAttack: 0.35,
   rest: {
