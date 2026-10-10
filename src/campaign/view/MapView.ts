@@ -30,7 +30,36 @@ const GLYPH: Record<NodeType, string> = {
   bog: '<path d="M-22 8 q5 -4 10 0 t10 0 t10 0 t10 0 M-14 8 V-10 M-10 8 V-14 M12 8 V-8 M16 8 V-12" />',
 };
 
-/** Pergamino envejecido con montañas, bosques, el río y una rosa de los vientos. */
+/** Punto de control de cada camino: algo curvo, como trazado a mano. */
+function roadControl(a: { x: number; y: number }, b: { x: number; y: number }) {
+  return { x: (a.x + b.x) / 2 + (b.y - a.y) * 0.08, y: (a.y + b.y) / 2 - (b.x - a.x) * 0.08 };
+}
+
+/** Puntos de nodos y caminos: el decorado los esquiva para no tapar nada. */
+function busyPoints() {
+  const pts: { x: number; y: number; r: number }[] = MAP.map((n) => ({ x: n.x, y: n.y, r: 62 }));
+  for (const n of MAP) {
+    for (const l of n.links) {
+      const m = NODE[l];
+      const c = roadControl(n, m);
+      for (let t = 0; t <= 1; t += 0.05) {
+        const u = 1 - t;
+        pts.push({ x: u * u * n.x + 2 * u * t * c.x + t * t * m.x, y: u * u * n.y + 2 * u * t * c.y + t * t * m.y, r: 16 });
+      }
+    }
+  }
+  // La cartela del título y la rosa de los vientos
+  pts.push({ x: 170, y: 585, r: 60 }, { x: 290, y: 585, r: 40 }, { x: 920, y: 548, r: 70 });
+  return pts;
+}
+
+/**
+ * Mapa ilustrado sobre pergamino: aguadas de color por regiones (prados,
+ * bosques, cordilleras, marjal, tierras de la noche), cordilleras con cara
+ * iluminada y nieve, arboledas, el río con sus orillas, campos de labor junto
+ * a las aldeas, charcas, rosa de los vientos y cartela. El decorado esquiva
+ * nodos y caminos.
+ */
 function paintParchment(seed: number): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = MAP_W * 2;
@@ -38,141 +67,314 @@ function paintParchment(seed: number): HTMLCanvasElement {
   const ctx = c.getContext('2d')!;
   ctx.scale(2, 2);
   const rng = new Rng(seed);
+  const busy = busyPoints();
+  const free = (x: number, y: number, pad = 0) => busy.every((p) => (p.x - x) ** 2 + (p.y - y) ** 2 > (p.r + pad) ** 2);
 
+  // ── Pergamino ──
   const base = ctx.createRadialGradient(MAP_W / 2, MAP_H / 2, 80, MAP_W / 2, MAP_H / 2, MAP_W * 0.62);
-  base.addColorStop(0, '#e6d4a8');
-  base.addColorStop(0.7, '#cdb582');
-  base.addColorStop(1, '#8a6a3c');
+  base.addColorStop(0, '#ecdcb2');
+  base.addColorStop(0.7, '#d6bf8c');
+  base.addColorStop(1, '#9a7a48');
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, MAP_W, MAP_H);
-  // Manchas y vetas
   for (let i = 0; i < 90; i++) {
     const x = rng.next() * MAP_W;
     const y = rng.next() * MAP_H;
     const r = 10 + rng.next() * 60;
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, `rgba(110, 80, 40, ${0.04 + rng.next() * 0.08})`);
+    g.addColorStop(0, `rgba(110, 80, 40, ${0.03 + rng.next() * 0.06})`);
     g.addColorStop(1, 'rgba(110, 80, 40, 0)');
     ctx.fillStyle = g;
     ctx.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  ctx.strokeStyle = 'rgba(90, 64, 30, 0.07)';
-  for (let i = 0; i < 400; i++) {
-    const y = rng.next() * MAP_H;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(MAP_W, y + (rng.next() - 0.5) * 30);
-    ctx.stroke();
-  }
 
-  const ink = 'rgba(40, 26, 14, 0.75)';
-  ctx.strokeStyle = ink;
-  ctx.fillStyle = ink;
+  // ── Aguadas de color: manchas suaves superpuestas, como acuarela ──
+  const wash = (cx: number, cy: number, rx: number, ry: number, rgb: string, alpha: number, blobs = 14) => {
+    for (let i = 0; i < blobs; i++) {
+      const x = cx + (rng.next() - 0.5) * rx * 1.6;
+      const y = cy + (rng.next() - 0.5) * ry * 1.6;
+      const r = Math.min(rx, ry) * (0.45 + rng.next() * 0.5);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(${rgb}, ${alpha})`);
+      g.addColorStop(0.7, `rgba(${rgb}, ${alpha * 0.5})`);
+      g.addColorStop(1, `rgba(${rgb}, 0)`);
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    }
+  };
+  wash(220, 470, 170, 120, '150, 175, 95', 0.22); // prados del castillo
+  wash(330, 290, 190, 130, '80, 125, 70', 0.26); // bosques de Robledal y Bosque Hondo
+  wash(470, 520, 120, 80, '170, 150, 110', 0.2); // tierras secas de las ruinas
+  wash(760, 110, 260, 110, '120, 125, 145', 0.26); // cordillera del norte
+  wash(140, 110, 150, 90, '120, 125, 145', 0.2); // sierra del noroeste
+  wash(890, 400, 110, 90, '95, 115, 75', 0.3); // Marjal Negro
+  wash(890, 170, 90, 80, '90, 55, 105', 0.22); // tierras del Heraldo
+  wash(600, 560, 80, 60, '90, 55, 105', 0.18); // el cubil
+
+  const INK = 'rgba(40, 26, 14, 0.8)';
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // Río que baja del norte y cruza por el vado
-  ctx.lineWidth = 7;
-  ctx.strokeStyle = 'rgba(70, 90, 100, 0.45)';
-  ctx.beginPath();
-  ctx.moveTo(680, -10);
-  ctx.bezierCurveTo(640, 120, 700, 260, 605, 385);
-  ctx.bezierCurveTo(540, 470, 680, 540, 650, 640);
-  ctx.stroke();
-  ctx.lineWidth = 1.5;
-  ctx.strokeStyle = ink;
-  ctx.stroke();
-
-  // Montañas al norte y al este
-  const mountain = (x: number, y: number, s: number) => {
-    ctx.lineWidth = 1.6;
+  // ── Río: aguada azul, agua más clara al centro y las dos orillas en tinta ──
+  const river = () => {
     ctx.beginPath();
-    ctx.moveTo(x - 22 * s, y);
-    ctx.lineTo(x, y - 30 * s);
-    ctx.lineTo(x + 22 * s, y);
+    ctx.moveTo(680, -10);
+    ctx.bezierCurveTo(640, 120, 700, 260, 605, 385);
+    ctx.bezierCurveTo(540, 470, 680, 540, 650, 640);
+  };
+  river();
+  ctx.strokeStyle = 'rgba(80, 125, 150, 0.35)';
+  ctx.lineWidth = 22;
+  ctx.stroke();
+  river();
+  ctx.strokeStyle = 'rgba(120, 170, 195, 0.55)';
+  ctx.lineWidth = 11;
+  ctx.stroke();
+  for (const off of [-7, 7]) {
+    ctx.save();
+    ctx.translate(off, 0);
+    river();
+    ctx.strokeStyle = 'rgba(40, 50, 60, 0.55)';
+    ctx.lineWidth = 1.2;
     ctx.stroke();
+    ctx.restore();
+  }
+  // Ondas en el agua
+  ctx.strokeStyle = 'rgba(240, 248, 255, 0.6)';
+  ctx.lineWidth = 1;
+  const bez = (p: number[], t: number) => (1 - t) ** 3 * p[0] + 3 * (1 - t) ** 2 * t * p[1] + 3 * (1 - t) * t * t * p[2] + t ** 3 * p[3];
+  const legs = [
+    [[680, 640, 700, 605], [-10, 120, 260, 385]],
+    [[605, 540, 680, 650], [385, 470, 540, 640]],
+  ];
+  for (const [xs, ys] of legs) for (let t = 0.08; t < 1; t += 0.16) {
+    const x = bez(xs, t);
+    const y = bez(ys, t);
+    ctx.beginPath();
+    ctx.moveTo(x - 3, y);
+    ctx.quadraticCurveTo(x, y - 2, x + 3, y);
+    ctx.stroke();
+  }
+
+  // ── Cordilleras: cara al sol clara, cara en sombra rayada, nieve en las altas ──
+  const mountain = (x: number, y: number, s: number, snow: boolean) => {
+    const h = 34 * s;
+    const w = 26 * s;
+    const peak = { x: x + (rng.next() - 0.5) * 6 * s, y: y - h };
+    ctx.beginPath();
+    ctx.moveTo(x - w, y);
+    ctx.lineTo(peak.x, peak.y);
+    ctx.lineTo(peak.x + 2 * s, y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(226, 212, 184, 0.95)';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(peak.x, peak.y);
+    ctx.lineTo(x + w, y);
+    ctx.lineTo(peak.x + 2 * s, y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(128, 118, 128, 0.85)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40, 30, 30, 0.45)';
     ctx.lineWidth = 0.8;
-    for (let k = 0; k < 4; k++) {
+    for (let k = 1; k < 5; k++) {
       ctx.beginPath();
-      ctx.moveTo(x + 2 * s + k * 4 * s, y - 26 * s + k * 7 * s);
-      ctx.lineTo(x + 6 * s + k * 4 * s, y - 2 * s);
+      ctx.moveTo(peak.x + k * 0.18 * w, peak.y + k * 0.2 * h);
+      ctx.lineTo(peak.x + k * 0.12 * w, y);
       ctx.stroke();
     }
-  };
-  for (let i = 0; i < 26; i++) mountain(560 + rng.next() * 420, 40 + rng.next() * 130, 0.8 + rng.next() * 0.7);
-  for (let i = 0; i < 10; i++) mountain(20 + rng.next() * 260, 40 + rng.next() * 140, 0.7 + rng.next() * 0.5);
-
-  // Arboledas alrededor del bosque y dispersas
-  const tree = (x: number, y: number, s: number) => {
-    ctx.lineWidth = 1.2;
+    if (snow) {
+      ctx.beginPath();
+      ctx.moveTo(peak.x, peak.y);
+      ctx.lineTo(peak.x - w * 0.32, peak.y + h * 0.3);
+      ctx.lineTo(peak.x - w * 0.12, peak.y + h * 0.24);
+      ctx.lineTo(peak.x + w * 0.05, peak.y + h * 0.34);
+      ctx.lineTo(peak.x + w * 0.3, peak.y + h * 0.3);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(252, 252, 255, 0.95)';
+      ctx.fill();
+    }
     ctx.beginPath();
-    ctx.moveTo(x - 6 * s, y);
-    ctx.lineTo(x, y - 16 * s);
-    ctx.lineTo(x + 6 * s, y);
-    ctx.closePath();
+    ctx.moveTo(x - w, y);
+    ctx.lineTo(peak.x, peak.y);
+    ctx.lineTo(x + w, y);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.5;
     ctx.stroke();
+  };
+  const range = (x0: number, x1: number, y0: number, y1: number, n: number, sMin: number, sMax: number, snowAbove: number) => {
+    const peaks: [number, number, number][] = [];
+    for (let i = 0; i < n * 6 && peaks.length < n; i++) {
+      const x = x0 + rng.next() * (x1 - x0);
+      const y = y0 + rng.next() * (y1 - y0);
+      const s = sMin + rng.next() * (sMax - sMin);
+      if (free(x, y - 15 * s, 8)) peaks.push([x, y, s]);
+    }
+    // De atrás adelante, para que las de delante tapen a las de detrás.
+    for (const [x, y, s] of peaks.sort((a, b) => a[1] - b[1])) mountain(x, y, s, s > snowAbove);
+  };
+  range(470, 990, 40, 140, 30, 0.7, 1.5, 1.05);
+  range(20, 320, 50, 160, 12, 0.6, 1.1, 0.95);
+  range(640, 860, 300, 330, 4, 0.5, 0.7, 2);
+
+  // ── Arboledas: frondosos y pinos con su sombra ──
+  const leafy = (x: number, y: number, s: number) => {
+    ctx.fillStyle = 'rgba(40, 26, 14, 0.25)';
+    ctx.beginPath();
+    ctx.ellipse(x + 2 * s, y + 1, 7 * s, 2.5 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.1;
     ctx.beginPath();
     ctx.moveTo(x, y);
-    ctx.lineTo(x, y + 4 * s);
+    ctx.lineTo(x, y - 5 * s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y - 10 * s, 7 * s, 0, Math.PI * 2);
+    ctx.fillStyle = rng.chance(0.25) ? 'rgba(175, 150, 70, 0.9)' : 'rgba(95, 140, 75, 0.92)';
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x - 2.5 * s, y - 12.5 * s, 2.5 * s, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(220, 235, 170, 0.5)';
+    ctx.fill();
+  };
+  const pine = (x: number, y: number, s: number) => {
+    ctx.fillStyle = 'rgba(40, 26, 14, 0.25)';
+    ctx.beginPath();
+    ctx.ellipse(x + 2 * s, y + 1, 5 * s, 2 * s, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 6 * s, y);
+    ctx.lineTo(x, y - 18 * s);
+    ctx.lineTo(x + 6 * s, y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(55, 95, 65, 0.95)';
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.1;
     ctx.stroke();
   };
-  for (let i = 0; i < 70; i++) {
-    const a = rng.next() * Math.PI * 2;
-    const r = 40 + rng.next() * 90;
-    tree(NODE.bosque.x + Math.cos(a) * r * 1.3, NODE.bosque.y + Math.sin(a) * r * 0.7, 0.8 + rng.next() * 0.5);
-  }
-  for (let i = 0; i < 40; i++) tree(rng.next() * MAP_W, 200 + rng.next() * 400, 0.7 + rng.next() * 0.4);
+  const grove = (cx: number, cy: number, rx: number, ry: number, n: number, pines: number) => {
+    const trees: [number, number, number, boolean][] = [];
+    for (let i = 0; i < n * 5 && trees.length < n; i++) {
+      const a = rng.next() * Math.PI * 2;
+      const r = Math.sqrt(rng.next());
+      const x = cx + Math.cos(a) * r * rx;
+      const y = cy + Math.sin(a) * r * ry;
+      if (free(x, y - 8, 2)) trees.push([x, y, 0.8 + rng.next() * 0.5, rng.chance(pines)]);
+    }
+    for (const [x, y, s, p] of trees.sort((a, b) => a[1] - b[1])) (p ? pine : leafy)(x, y, s);
+  };
+  grove(420, 300, 150, 95, 70, 0.3);
+  grove(225, 250, 110, 70, 30, 0.2);
+  grove(560, 220, 90, 60, 18, 0.6);
+  grove(750, 300, 90, 40, 12, 0.9);
+  grove(330, 560, 80, 40, 10, 0.2);
+  grove(80, 330, 70, 60, 14, 0.4);
 
-  // Juncos del marjal
-  for (let i = 0; i < 26; i++) {
-    const x = NODE.marjal.x + (rng.next() - 0.5) * 150;
-    const y = NODE.marjal.y + (rng.next() - 0.5) * 90;
+  // ── Campos de labor junto a las aldeas ──
+  const fields = (cx: number, cy: number) => {
+    for (let k = 0; k < 5; k++) {
+      const x = cx + (rng.next() - 0.5) * 120;
+      const y = cy + (rng.next() - 0.5) * 70;
+      if (!free(x, y, 18)) continue;
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate((rng.next() - 0.5) * 0.6);
+      ctx.fillStyle = rng.chance(0.5) ? 'rgba(210, 180, 90, 0.5)' : 'rgba(150, 165, 80, 0.45)';
+      ctx.fillRect(-16, -9, 32, 18);
+      ctx.strokeStyle = 'rgba(90, 70, 30, 0.45)';
+      ctx.lineWidth = 0.8;
+      for (let l = -12; l <= 12; l += 4) {
+        ctx.beginPath();
+        ctx.moveTo(l, -9);
+        ctx.lineTo(l, 9);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+  };
+  fields(NODE.robledal.x, NODE.robledal.y);
+  fields(NODE.molino.x, NODE.molino.y);
+  fields(NODE.castle.x + 40, NODE.castle.y - 40);
+
+  // ── Marjal: charcas y juncos ──
+  for (let i = 0; i < 9; i++) {
+    const x = NODE.marjal.x + (rng.next() - 0.5) * 170;
+    const y = NODE.marjal.y + (rng.next() - 0.5) * 120;
+    if (!free(x, y, 10)) continue;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 14 + rng.next() * 10, 5 + rng.next() * 4, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(85, 115, 95, 0.55)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(40, 50, 40, 0.5)';
+    ctx.lineWidth = 0.8;
+    ctx.stroke();
+  }
+  ctx.strokeStyle = INK;
+  for (let i = 0; i < 30; i++) {
+    const x = NODE.marjal.x + (rng.next() - 0.5) * 170;
+    const y = NODE.marjal.y + (rng.next() - 0.5) * 120;
+    if (!free(x, y, 4)) continue;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x - 5, y);
-    ctx.lineTo(x + 5, y);
     ctx.moveTo(x - 2, y);
-    ctx.lineTo(x - 3, y - 7);
+    ctx.lineTo(x - 3, y - 8);
     ctx.moveTo(x + 2, y);
-    ctx.lineTo(x + 3, y - 9);
+    ctx.lineTo(x + 3, y - 10);
     ctx.stroke();
   }
 
-  // Rosa de los vientos
+  // ── Rosa de los vientos, con el norte en rojo ──
   const cx = 920;
   const cy = 548;
+  ctx.strokeStyle = INK;
   ctx.lineWidth = 1.2;
   ctx.beginPath();
   ctx.arc(cx, cy, 38, 0, Math.PI * 2);
   ctx.stroke();
   for (let k = 0; k < 8; k++) {
-    const a = (k * Math.PI) / 4;
+    const a = (k * Math.PI) / 4 - Math.PI / 2;
     const len = k % 2 ? 26 : 50;
     ctx.beginPath();
     ctx.moveTo(cx + Math.cos(a + 0.18) * 8, cy + Math.sin(a + 0.18) * 8);
     ctx.lineTo(cx + Math.cos(a) * len, cy + Math.sin(a) * len);
     ctx.lineTo(cx + Math.cos(a - 0.18) * 8, cy + Math.sin(a - 0.18) * 8);
     ctx.closePath();
+    ctx.fillStyle = k === 0 ? 'rgba(160, 40, 30, 0.9)' : INK;
     if (k % 2 === 0) ctx.fill();
     else ctx.stroke();
   }
+  ctx.fillStyle = INK;
   ctx.font = '16px "IM Fell English SC", serif';
   ctx.textAlign = 'center';
   ctx.fillText('N', cx, cy - 56);
 
-  // Cartela con el título
-  ctx.font = '26px "IM Fell English SC", serif';
-  ctx.fillText('El Sendero del Alba', 170, 586);
-  ctx.lineWidth = 1;
+  // ── Cartela: cinta con el título ──
+  const tx = 170;
+  const ty = 580;
   ctx.beginPath();
-  ctx.moveTo(40, 596);
-  ctx.lineTo(300, 596);
+  ctx.moveTo(tx - 140, ty - 18);
+  ctx.lineTo(tx + 140, ty - 18);
+  ctx.lineTo(tx + 128, ty);
+  ctx.lineTo(tx + 140, ty + 18);
+  ctx.lineTo(tx - 140, ty + 18);
+  ctx.lineTo(tx - 128, ty);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(238, 224, 186, 0.95)';
+  ctx.fill();
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = 1.4;
   ctx.stroke();
+  ctx.fillStyle = 'rgba(40, 26, 14, 0.9)';
+  ctx.font = '24px "IM Fell English SC", serif';
+  ctx.fillText('El Sendero del Alba', tx, ty + 8);
 
-  // Bordes quemados
+  // ── Bordes quemados ──
   const edge = ctx.createRadialGradient(MAP_W / 2, MAP_H / 2, MAP_H * 0.45, MAP_W / 2, MAP_H / 2, MAP_W * 0.6);
   edge.addColorStop(0, 'rgba(40, 20, 5, 0)');
-  edge.addColorStop(1, 'rgba(40, 20, 5, 0.65)');
+  edge.addColorStop(1, 'rgba(40, 20, 5, 0.6)');
   ctx.fillStyle = edge;
   ctx.fillRect(0, 0, MAP_W, MAP_H);
   return c;
@@ -218,10 +420,10 @@ export class MapView {
         drawn.add(key);
         const m = NODE[l];
         const known = c.node(n.id).seen && c.node(l).seen;
-        // Caminos algo curvos, como trazados a mano
-        const mx = (n.x + m.x) / 2 + (m.y - n.y) * 0.08;
-        const my = (n.y + m.y) / 2 - (m.x - n.x) * 0.08;
-        paths += `<path class="road ${known ? '' : 'faint'}" d="M${n.x} ${n.y} Q${mx} ${my} ${m.x} ${m.y}" />`;
+        const q = roadControl(n, m);
+        const d = `M${n.x} ${n.y} Q${q.x} ${q.y} ${m.x} ${m.y}`;
+        // Senda de tierra clara y, encima, el trazo de tinta a puntos.
+        paths += `<path class="road-bed ${known ? '' : 'faint'}" d="${d}" /><path class="road ${known ? '' : 'faint'}" d="${d}" />`;
       }
     }
     let fog = '';

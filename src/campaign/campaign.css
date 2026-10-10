@@ -672,18 +672,26 @@ em.affl {
   width: 100%;
   height: 100%;
 }
+.cp-map-frame .road-bed {
+  fill: none;
+  stroke: rgba(196, 160, 104, 0.75);
+  stroke-width: 9;
+  stroke-linecap: round;
+}
 .cp-map-frame .road {
   fill: none;
-  stroke: #2a1a0c;
+  stroke: #4a2e14;
   stroke-width: 3;
   stroke-dasharray: 2 7;
   stroke-linecap: round;
 }
-.cp-map-frame .road.faint {
+.cp-map-frame .road.faint,
+.cp-map-frame .road-bed.faint {
   opacity: 0.35;
 }
+/* Lo inexplorado: bruma de pergamino, no una mancha oscura */
 .cp-map-frame .fog {
-  fill: rgba(60, 50, 40, 0.8);
+  fill: rgba(206, 188, 146, 0.88);
 }
 .cp-map-frame .dark {
   fill: rgba(28, 10, 40, 0.78);
