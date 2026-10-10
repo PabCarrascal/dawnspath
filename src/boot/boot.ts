@@ -48,8 +48,9 @@ const tick = (now: number) => {
 };
 
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+/** Espera `n` cuadros; en una pestaña en segundo plano no hay cuadros, así que basta con un rato. */
 async function frames(n: number) {
-  for (let k = 0; k < n; k++) await new Promise((r) => requestAnimationFrame(r));
+  for (let k = 0; k < n; k++) await Promise.race([new Promise((r) => requestAnimationFrame(r)), wait(100)]);
 }
 
 /** Cielo estrellado: puntos con `box-shadow` sobre un píxel. */
