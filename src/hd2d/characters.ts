@@ -732,6 +732,9 @@ export const BLENDER_SPRITES: Partial<Record<SpriteKind, string>> = {
   mimic: 'mimic',
 };
 
+/** `?sprites=blender` en la URL: usar las hojas de Blender en lugar de las dibujadas. */
+export const wantsBlenderSprites = () => new URLSearchParams(location.search).get('sprites') === 'blender';
+
 /** Carga las hojas de Blender (public/sprites/) y las usa en lugar de las dibujadas. */
 export async function useBlenderSprites() {
   await Promise.all(

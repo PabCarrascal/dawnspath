@@ -15,13 +15,14 @@ npm run assets -- --todo     # todos
 npm run assets -- hero       # solo estos
 ```
 
-Los PNG quedan en `public/sprites/<modelo>.png`. Para verlos en el juego, añade `?sprites=blender` al banco de combate:
+Los PNG quedan en `public/sprites/<modelo>.png`. Para verlos, añade `?sprites=blender` a la URL, en la campaña o en el banco de combate:
 
 ```
+http://localhost:5173/?partida=prueba&sprites=blender
 http://localhost:5173/combat.html?enc=ambush&seed=123&sprites=blender
 ```
 
-Sin ese parámetro, el juego usa los sprites dibujados por código. Qué personaje usa qué modelo se decide en `BLENDER_SPRITES`, en `src/hd2d/characters.ts`.
+En la campaña se usan en las maquetas, los retratos y los combates. Los aldeanos, el herrero y las gallinas siguen dibujados porque aún no tienen modelo. Sin el parámetro, todo usa los sprites dibujados por código. Qué personaje usa qué modelo se decide en `BLENDER_SPRITES`, en `src/hd2d/characters.ts`.
 
 ## Archivos
 
@@ -78,10 +79,10 @@ Para que el juego use el nuevo modelo, añádelo a `BLENDER_SPRITES` en `src/hd2
 | Personaje | Modelo |
 | --- | --- |
 | Héroe, lancero, arquera, capellana | Hechos y conectados al juego |
-| Sombra, bruto, acechador, heraldo, mímico | Hechos y conectados al juego (el heraldo y el mímico no salen en el banco de combate) |
+| Sombra, bruto, acechador, heraldo, mímico | Hechos y conectados al juego (el heraldo y el mímico solo salen en la campaña) |
 | Aldeano, herrero, gallina (solo en las maquetas) | Sin empezar |
 
 Pendiente:
 
-- Usar los sprites de Blender fuera del banco de combate: en la campaña y en las maquetas.
-- Decidir si sustituyen definitivamente a los dibujados.
+- Decidir si sustituyen definitivamente a los dibujados (hoy van detrás de `?sprites=blender`).
+- La galería de maquetas (`style.html`) todavía no los usa.

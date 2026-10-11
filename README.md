@@ -41,8 +41,8 @@ npm run deploy       # build y subida de dist/ al servidor por rsync
 
 | Página | Qué es |
 | --- | --- |
-| `/` | El juego: carga al amanecer, prólogo con la música del castillo y portada. `?partida=nombre` usa otra ranura de guardado. |
-| `/combat.html` | Banco de pruebas del combate en la maqueta. `?enc=skirmish\|patrol\|ambush&seed=123`; `?vista=2d` para la escena lateral antigua. |
+| `/` | El juego: carga al amanecer, prólogo con la música del castillo y portada. `?partida=nombre` usa otra ranura de guardado; `?sprites=blender`, los personajes renderizados en Blender. |
+| `/combat.html` | Banco de pruebas del combate en la maqueta. `?enc=skirmish\|patrol\|ambush&seed=123`; `?vista=2d` para la escena lateral antigua; `?sprites=blender` como en el juego. |
 | `/style.html` | Galería de maquetas: los 11 biomas en los cuatro ambientes. `?bioma=forest\|meadow\|…&hora=day\|dusk\|night\|dark` |
 
 ## Arquitectura

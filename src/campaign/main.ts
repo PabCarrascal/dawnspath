@@ -17,6 +17,7 @@ import type { ActionResult, BuildingId, CampaignState, LogLine, NameStyle, Soldi
 import { MapView } from './view/MapView';
 import { Hd2dCombatView } from '../hd2d/battle';
 import type { Mode } from '../hd2d/look';
+import { useBlenderSprites, wantsBlenderSprites } from '../hd2d/characters';
 import { portrait } from '../hd2d/portrait';
 import { Stage3D } from '../hd2d/stage';
 
@@ -268,6 +269,11 @@ function titleCampaign() {
  * Monta la maqueta de la portada detrás de la pantalla de carga, para que
  * texturas y sombreadores estén listos cuando se descubra.
  */
+/** Con `?sprites=blender`, carga los personajes renderizados en Blender antes de montar ninguna maqueta. */
+export async function loadSprites() {
+  if (wantsBlenderSprites()) await useBlenderSprites();
+}
+
 export function prepareTitle() {
   titleCampaign();
   return castleScene('dusk');

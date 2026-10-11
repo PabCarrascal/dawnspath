@@ -139,6 +139,7 @@ async function main() {
   raf = requestAnimationFrame(tick);
   try {
     const [, , game] = await Promise.all([loadFonts(), loadMusic(), loadGame()]);
+    await game.loadSprites();
     game.prepareTitle();
     // Unos cuadros con la maqueta ya en pantalla: se generan texturas y se compilan los sombreadores.
     await frames(4);
