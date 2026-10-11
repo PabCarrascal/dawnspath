@@ -6,6 +6,7 @@ import { Combat } from './rules/Combat';
 import { ENCOUNTERS } from './rules/data';
 import type { Fighter } from './rules/types';
 import { Hd2dCombatView } from '../hd2d/battle';
+import { useBlenderSprites } from '../hd2d/characters';
 import { CombatOutcome, startCombat } from './session';
 import type { TimeOfDay } from './view/backdrop';
 
@@ -59,6 +60,9 @@ async function run(id: string, seed: number) {
   window.addEventListener('pointerdown', unlock, { once: true });
   window.addEventListener('keydown', unlock, { once: true });
   unlock();
+
+  // `?sprites=blender` cambia los personajes dibujados por las hojas renderizadas en Blender.
+  if (params.get('sprites') === 'blender') await useBlenderSprites();
 
   // `?vista=2d` usa la escena lateral anterior; por defecto, la maqueta HD-2D.
   const flat = params.get('vista') === '2d';

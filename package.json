@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "sim": "vite-node src/campaign/sim.ts",
     "sim:combat": "vite-node src/combat/sim.ts",
+    "assets": "bash tools/blender/run.sh",
     "deploy": "npm run build && rsync -avz --delete -e \"ssh -p 3322\" dist/ kayadmin@192.168.1.45:/var/www/dawnspath/",
     "deploy:dry": "npm run build && rsync -avz --delete --dry-run -e \"ssh -p 3322\" dist/ kayadmin@192.168.1.45:/var/www/dawnspath/"
   },

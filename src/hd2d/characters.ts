@@ -716,8 +716,34 @@ function selOut(p: Px) {
   for (const [x, y, c] of add) p.set(x, y, c);
 }
 
+/** Hojas renderizadas en Blender (tools/blender/) que sustituyen al dibujo por código. */
+const LOADED = new Map<SpriteKind, Px>();
+
+/** Modelo de tools/blender/sprites/ que hace de cada personaje con `?sprites=blender`. */
+export const BLENDER_SPRITES: Partial<Record<SpriteKind, string>> = { hero: 'hero' };
+
+/** Carga las hojas de Blender (public/sprites/) y las usa en lugar de las dibujadas. */
+export async function useBlenderSprites() {
+  await Promise.all(
+    Object.entries(BLENDER_SPRITES).map(async ([kind, name]) => {
+      const img = new Image();
+      img.src = `sprites/${name}.png`;
+      await img.decode();
+      LOADED.set(kind as SpriteKind, Px.from(img));
+    }),
+  );
+}
+
+/** Tamaño del cuadro en la rejilla base; las hojas de Blender pueden traer otro. */
+export function frameSize(kind: SpriteKind): [number, number] {
+  const px = LOADED.get(kind);
+  return px ? [px.w / FRAMES / SPRITE_RES, px.h / SPRITE_RES] : SPRITE_SIZE[kind];
+}
+
 /** Hoja de sprites de un personaje: dos cuadros de reposo, el golpe y el dolor, a doble resolución. */
 export function spriteSheet(kind: SpriteKind): Px {
+  const loaded = LOADED.get(kind);
+  if (loaded) return loaded;
   const k = SPRITE_RES;
   const [w, h] = SPRITE_SIZE[kind];
   const sheet = new Px(w * k * FRAMES, h * k);

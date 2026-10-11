@@ -1,4 +1,4 @@
-import { SPRITE_RES, SPRITE_SIZE, SpriteKind, spriteSheet } from './characters';
+import { SPRITE_RES, SPRITE_SIZE, SpriteKind, frameSize, spriteSheet } from './characters';
 
 const cache = new Map<string, string>();
 
@@ -12,7 +12,7 @@ export function portrait(kind: string, flip = false): string {
   const hit = cache.get(key);
   if (hit) return hit;
   const sheet = spriteSheet(k).flush();
-  const [w, h] = SPRITE_SIZE[k];
+  const [w, h] = frameSize(k);
   // Cabeza y torso: el 62 % de arriba del cuadro, recortado a lo ancho.
   const ch = Math.round(h * 0.62);
   const cw = Math.min(w, Math.round(ch * 1.05));

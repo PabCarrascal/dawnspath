@@ -19,6 +19,15 @@ export class Px {
     this.img = new ImageData(w, h);
   }
 
+  /** Lienzo con el contenido de una imagen ya cargada (una hoja hecha fuera, p. ej. en Blender). */
+  static from(image: HTMLImageElement) {
+    const px = new Px(image.naturalWidth, image.naturalHeight);
+    const ctx = px.canvas.getContext('2d')!;
+    ctx.drawImage(image, 0, 0);
+    px.img = ctx.getImageData(0, 0, px.w, px.h);
+    return px;
+  }
+
   set(x: number, y: number, color: number, alpha = 255) {
     x = Math.round(x);
     y = Math.round(y);
