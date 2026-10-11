@@ -21,6 +21,8 @@ export const CBAL = {
   roadAmbush: 0.2,
   /** Probabilidad de que las criaturas retomen un nodo limpio sin guardia (los vecinos del castillo no). */
   retake: 0.2,
+  /** Probabilidad de que las criaturas arrasen lo construido al tomar un nodo; si no, queda en pie para quien lo recupere. */
+  raze: { camp: 0.6, tower: 0.35 },
   /**
    * Producción del territorio: lo que manda al castillo cada amanecer cada
    * lugar liberado (sin criaturas ni oscuridad), según lo que es.

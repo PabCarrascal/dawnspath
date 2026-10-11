@@ -375,6 +375,26 @@ describe('campaña: retaguardia', () => {
     expect(c.node('bosque').foes.length).toBeGreaterThan(0);
   });
 
+  it('al retomar un lugar, las criaturas no siempre arrasan lo construido', () => {
+    const after = (raze: number) => {
+      const c = new Campaign(1);
+      hold(c, 'prado');
+      hold(c, 'bosque');
+      c.node('bosque').structure = 'tower';
+      const before = CBAL.raze.tower;
+      CBAL.raze.tower = raze;
+      try {
+        withBal('retake', 1, () => night(c));
+      } finally {
+        CBAL.raze.tower = before;
+      }
+      expect(c.node('bosque').foes.length).toBeGreaterThan(0);
+      return c.node('bosque').structure;
+    };
+    expect(after(0)).toBe('tower');
+    expect(after(1)).toBeNull();
+  });
+
   it('cruzar la retaguardia no tiene emboscadas', () => {
     const c = departed();
     const [, spear, archer] = c.state.soldiers;
@@ -619,7 +639,8 @@ describe('campaña: bot (sigue)', () => {
 describe('campaña: bot', () => {
   it('juega campañas enteras hasta el final', () => {
     for (let seed = 1; seed <= 15; seed++) {
-      const r = playCampaign(seed);
+      // Con margen: alguna campaña se alarga (la 3 acaba el día 92 al volver la oscuridad una y otra vez al prado).
+      const r = playCampaign(seed, 150);
       expect(['won', 'lost']).toContain(r.result);
     }
   });

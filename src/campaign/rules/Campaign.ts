@@ -1054,6 +1054,7 @@ export class Campaign {
       covered.push(NODE[id].name);
       if (!n.foes.length) n.foes = [...NODE[id].regen];
       else if (n.foes.length < 4) n.foes.push('shade');
+      // La oscuridad no deja nada en pie (las criaturas, a veces sí: ver raze).
       n.structure = null;
     }
     if (covered.length) log.push({ text: `La oscuridad avanza: cubre ${covered.join(', ')}.`, tone: 'bad' });
@@ -1079,9 +1080,9 @@ export class Campaign {
         }
       } else if (exposed.has(def.id) && (n.dark || !def.links.includes('castle')) && this.rng.chance(n.dark ? CBAL.retake * 2 : CBAL.retake)) {
         n.foes = [...def.regen];
-        const burnt = n.structure;
-        n.structure = null;
-        log.push({ text: `Las criaturas retoman ${def.name}${burnt ? ` y arrasan ${burnt === 'camp' ? 'el campamento' : 'la torre'}` : ''}.`, tone: 'bad' });
+        const burnt = this.raze(n);
+        const left = n.structure ? `; ${n.structure === 'camp' ? 'el campamento' : 'la torre'} sigue en pie` : '';
+        log.push({ text: `Las criaturas retoman ${def.name}${burnt ? ` y arrasan ${burnt === 'camp' ? 'el campamento' : 'la torre'}` : left}.`, tone: 'bad' });
       }
     }
     this.restGuards(attacked);
@@ -1134,8 +1135,20 @@ export class Campaign {
     n.garrison = [];
     n.sentinels = 0;
     n.foes = [...def.regen];
-    n.structure = null;
+    if (!this.raze(n) && n.structure) lines.push({ text: `${n.structure === 'camp' ? 'El campamento' : 'La torre'} sigue en pie.`, tone: 'info' });
     return lines;
+  }
+
+  /**
+   * Las criaturas toman un nodo: arrasan lo construido con la probabilidad de
+   * CBAL.raze (la torre aguanta más) y, si no, queda para quien lo recupere.
+   * Devuelve lo arrasado.
+   */
+  private raze(n: NodeState): Structure | null {
+    if (!n.structure || !this.rng.chance(CBAL.raze[n.structure])) return null;
+    const burnt = n.structure;
+    n.structure = null;
+    return burnt;
   }
 
   /** Descanso y nuevo día. */
