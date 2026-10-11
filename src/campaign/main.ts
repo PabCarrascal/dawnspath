@@ -269,7 +269,7 @@ function titleCampaign() {
  * Monta la maqueta de la portada detrás de la pantalla de carga, para que
  * texturas y sombreadores estén listos cuando se descubra.
  */
-/** Con `?sprites=blender`, carga los personajes renderizados en Blender antes de montar ninguna maqueta. */
+/** Carga los personajes renderizados en Blender (salvo con `?sprites=dibujados`) antes de montar ninguna maqueta. */
 export async function loadSprites() {
   if (wantsBlenderSprites()) await useBlenderSprites();
 }

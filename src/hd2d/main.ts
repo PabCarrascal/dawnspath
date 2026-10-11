@@ -5,6 +5,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { audio, Track } from '../audio/Audio';
 import { mountSoundControl } from '../audio/SoundControl';
 import type { Biome } from '../combat/rules/data';
+import { useBlenderSprites, wantsBlenderSprites } from './characters';
 import { buildDiorama } from './diorama/build';
 import { LookController, Mode } from './look';
 import { buildPost } from './post';
@@ -44,6 +45,8 @@ scene.fog = new THREE.Fog(0xd8dcc0, 26, 70);
 
 // Teleobjetivo y cámara alta: aplana la perspectiva, como en una maqueta fotografiada.
 const camera = new THREE.PerspectiveCamera(26, window.innerWidth / window.innerHeight, 0.5, 200);
+// Personajes renderizados en Blender, salvo con `?sprites=dibujados`.
+if (wantsBlenderSprites()) await useBlenderSprites();
 const forest = buildDiorama(biome, {
   scene: { party: ['hero', 'spearman', 'archer', 'chaplain'], structure: biome === 'castle' || biome === 'village' ? null : 'camp', fire: true, loot: biome !== 'castle' },
 });

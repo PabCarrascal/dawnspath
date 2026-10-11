@@ -2,7 +2,7 @@
 
 Cómo se hacen en Blender los sprites de los personajes de El Sendero del Alba y cómo los usa el juego.
 
-El estilo es HD-2D: personajes en pixel art dentro de maquetas 3D. Hasta ahora cada sprite se dibujaba por código en `src/hd2d/characters.ts`. Con Blender, cada personaje es un modelo 3D sencillo, hecho con primitivas, que se renderiza como una hoja de pixel art con el mismo formato, la misma paleta y el mismo acabado. El juego puede usar una u otra versión.
+El estilo es HD-2D: personajes en pixel art dentro de maquetas 3D. Antes cada sprite se dibujaba por código en `src/hd2d/characters.ts`. Ahora cada personaje es un modelo 3D sencillo, hecho con primitivas, que Blender renderiza como una hoja de pixel art con el mismo formato, la misma paleta y el mismo acabado. El juego usa las de Blender por defecto; las dibujadas siguen ahí como respaldo.
 
 - **Dónde está todo:** `tools/blender/`.
 - **Dónde se renderiza:** Blender está instalado solo en rdtserver, con snap. `npm run assets` sube `tools/blender/` a una carpeta temporal del servidor, lanza allí `blender -b` (sin interfaz) por cada modelo y se trae los PNG. Cómo se accede por SSH: [rdtserver.md](rdtserver.md).
@@ -15,14 +15,10 @@ npm run assets -- --todo     # todos
 npm run assets -- hero       # solo estos
 ```
 
-Los PNG quedan en `public/sprites/<modelo>.png`. Para verlos, añade `?sprites=blender` a la URL, en la campaña o en el banco de combate:
+Los PNG quedan en `public/sprites/<modelo>.png` y el juego los usa en todas partes: maquetas, retratos y combates, en la campaña, el banco de combate y la galería de maquetas.
 
-```
-http://localhost:5173/?partida=prueba&sprites=blender
-http://localhost:5173/combat.html?enc=ambush&seed=123&sprites=blender
-```
-
-En la campaña se usan en las maquetas, los retratos y los combates. Los aldeanos, el herrero y las gallinas siguen dibujados porque aún no tienen modelo. Sin el parámetro, todo usa los sprites dibujados por código. Qué personaje usa qué modelo se decide en `BLENDER_SPRITES`, en `src/hd2d/characters.ts`.
+- **Volver a los dibujados:** añade `?sprites=dibujados` a la URL. Sirve para comparar.
+- **Si una hoja no carga:** ese personaje sale dibujado y queda un aviso en la consola. El juego nunca se queda sin sprite. Qué personaje usa qué modelo se decide en `BLENDER_SPRITES`, en `src/hd2d/characters.ts`.
 
 ## Archivos
 
@@ -78,11 +74,8 @@ Para que el juego use el nuevo modelo, añádelo a `BLENDER_SPRITES` en `src/hd2
 
 | Personaje | Modelo |
 | --- | --- |
-| Héroe, lancero, arquera, capellana | Hechos y conectados al juego |
-| Sombra, bruto, acechador, heraldo, mímico | Hechos y conectados al juego (el heraldo y el mímico solo salen en la campaña) |
-| Aldeano, herrero, gallina (solo en las maquetas) | Sin empezar |
+| Héroe, lancero, arquera, capellana | Hechos |
+| Sombra, bruto, acechador, heraldo, mímico | Hechos (el heraldo y el mímico solo salen en la campaña) |
+| Aldeano, herrero, gallina | Hechos (solo salen en las maquetas) |
 
-Pendiente:
-
-- Decidir si sustituyen definitivamente a los dibujados (hoy van detrás de `?sprites=blender`).
-- La galería de maquetas (`style.html`) todavía no los usa.
+Los doce personajes de `SPRITE_SIZE` tienen modelo.

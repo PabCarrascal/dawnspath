@@ -495,7 +495,7 @@ function drawSmith(p: Canvas, dy: number) {
   p.rect(12, 12 + dy, 2, 4, 0x3e2618);
   p.rect(16, 18 + dy, 6, 3, 0x3e2618);
   // Martillo al hombro
-  shaded(p, 19, 22 + dy, 3, 5, SKIN);
+  shaded(p, 19, 22 + dy, 3, 5, SKIN.concat(SKIN[1]));
   p.rect(21, 14 + dy, 1, 12, C.wood[1]);
   shaded(p, 19, 12 + dy, 5, 3, C.steel);
 }
@@ -719,7 +719,7 @@ function selOut(p: Px) {
 /** Hojas renderizadas en Blender (tools/blender/) que sustituyen al dibujo por código. */
 const LOADED = new Map<SpriteKind, Px>();
 
-/** Modelo de tools/blender/sprites/ que hace de cada personaje con `?sprites=blender`. */
+/** Modelo de tools/blender/sprites/ que hace de cada personaje (los que no están aquí, dibujados). */
 export const BLENDER_SPRITES: Partial<Record<SpriteKind, string>> = {
   hero: 'hero',
   spearman: 'spearman',
@@ -730,19 +730,29 @@ export const BLENDER_SPRITES: Partial<Record<SpriteKind, string>> = {
   stalker: 'stalker',
   herald: 'herald',
   mimic: 'mimic',
+  villager: 'villager',
+  smith: 'smith',
+  chicken: 'chicken',
 };
 
-/** `?sprites=blender` en la URL: usar las hojas de Blender en lugar de las dibujadas. */
-export const wantsBlenderSprites = () => new URLSearchParams(location.search).get('sprites') === 'blender';
+/** Las hojas de Blender se usan por defecto; `?sprites=dibujados` vuelve a las dibujadas por código. */
+export const wantsBlenderSprites = () => new URLSearchParams(location.search).get('sprites') !== 'dibujados';
 
-/** Carga las hojas de Blender (public/sprites/) y las usa en lugar de las dibujadas. */
+/**
+ * Carga las hojas de Blender (public/sprites/) y las usa en lugar de las dibujadas.
+ * Si alguna no carga, ese personaje se queda dibujado: el juego nunca se queda sin sprite.
+ */
 export async function useBlenderSprites() {
   await Promise.all(
     Object.entries(BLENDER_SPRITES).map(async ([kind, name]) => {
       const img = new Image();
       img.src = `sprites/${name}.png`;
-      await img.decode();
-      LOADED.set(kind as SpriteKind, Px.from(img));
+      try {
+        await img.decode();
+        LOADED.set(kind as SpriteKind, Px.from(img));
+      } catch {
+        console.warn(`Sin hoja de Blender para ${kind} (sprites/${name}.png): se usa la dibujada.`);
+      }
     }),
   );
 }

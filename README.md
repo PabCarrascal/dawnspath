@@ -4,7 +4,7 @@ Gestión de un castillo y expediciones cortas con combate por turnos, en 2D y co
 
 **Ganas** si vences al Heraldo. **Pierdes** si cae el héroe sin nadie que lo saque del combate, o si la oscuridad engulle el castillo.
 
-Está en fase temprana. El estilo visual es HD-2D (como Octopath Traveler): personajes en pixel art dentro de maquetas en 3D, todo generado por código, sin assets importados. La música está generada con IA (MusicGen) y los efectos de sonido se sintetizan en código. Diseño completo en el [documento de diseño](https://claude.ai/code/artifact/8ca35d88-c574-4c82-b382-6e8fb4c8d4cd).
+Está en fase temprana. El estilo visual es HD-2D (como Octopath Traveler): personajes en pixel art dentro de maquetas en 3D. Las maquetas se generan por código; los personajes se modelan en Blender y se renderizan como pixel art ([cómo](docs/blender.md)). La música está generada con IA (MusicGen) y los efectos de sonido se sintetizan en código. Diseño completo en el [documento de diseño](https://claude.ai/code/artifact/8ca35d88-c574-4c82-b382-6e8fb4c8d4cd).
 
 ## El juego
 
@@ -41,8 +41,8 @@ npm run deploy       # build y subida de dist/ al servidor por rsync
 
 | Página | Qué es |
 | --- | --- |
-| `/` | El juego: carga al amanecer, prólogo con la música del castillo y portada. `?partida=nombre` usa otra ranura de guardado; `?sprites=blender`, los personajes renderizados en Blender. |
-| `/combat.html` | Banco de pruebas del combate en la maqueta. `?enc=skirmish\|patrol\|ambush&seed=123`; `?vista=2d` para la escena lateral antigua; `?sprites=blender` como en el juego. |
+| `/` | El juego: carga al amanecer, prólogo con la música del castillo y portada. `?partida=nombre` usa otra ranura de guardado; `?sprites=dibujados`, los personajes dibujados por código en lugar de los de Blender. |
+| `/combat.html` | Banco de pruebas del combate en la maqueta. `?enc=skirmish\|patrol\|ambush&seed=123`; `?vista=2d` para la escena lateral antigua; `?sprites=dibujados` como en el juego. |
 | `/style.html` | Galería de maquetas: los 11 biomas en los cuatro ambientes. `?bioma=forest\|meadow\|…&hora=day\|dusk\|night\|dark` |
 
 ## Arquitectura

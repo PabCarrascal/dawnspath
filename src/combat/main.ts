@@ -61,7 +61,7 @@ async function run(id: string, seed: number) {
   window.addEventListener('keydown', unlock, { once: true });
   unlock();
 
-  // `?sprites=blender` cambia los personajes dibujados por las hojas renderizadas en Blender.
+  // Personajes renderizados en Blender, salvo con `?sprites=dibujados`.
   if (wantsBlenderSprites()) await useBlenderSprites();
 
   // `?vista=2d` usa la escena lateral anterior; por defecto, la maqueta HD-2D.
