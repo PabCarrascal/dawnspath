@@ -147,7 +147,21 @@ describe('campaña: expedición', () => {
     expect(c.loot().ok).toBe(false);
   });
 
-  it('si el grupo huye del mímico, se pierde el botín', () => {
+  it('como mucho sale un mímico por campaña', () => {
+    const c = departed();
+    c.move('prado');
+    winPending(c);
+    withMimic(1, () => c.loot());
+    winPending(c);
+    // Otro nodo limpio con botín: aunque la probabilidad fuera total, ya no sale.
+    hold(c, 'bosque');
+    c.state.exp!.node = 'bosque';
+    c.state.exp!.hours = 12;
+    const r = withMimic(1, () => c.loot());
+    expect(r.ok && r.combat).toBeFalsy();
+  });
+
+    it('si el grupo huye del mímico, se pierde el botín', () => {
     const c = departed();
     c.move('prado');
     winPending(c);

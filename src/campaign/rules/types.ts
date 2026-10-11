@@ -173,6 +173,8 @@ export interface CampaignState {
     nights: number;
     /** Para las hazañas (opcionales: las partidas antiguas no los traen). */
     mimics?: number;
+    /** Mímicos que han salido (vencidos o no): como mucho uno por campaña. */
+    mimicsMet?: number;
     sentinels?: number;
     siegesLifted?: number;
     virtues?: number;

@@ -622,7 +622,8 @@ export class Campaign {
     const noLight = this.spend(CBAL.lootHours);
     if (noLight) return fail(noLight);
     // Donde ya hubo combate, el cofre puede ser un mímico: el grupo toma aliento y pelea por el botín.
-    if (n.everCleared && this.rng.chance(CBAL.mimic.chance)) {
+    if (n.everCleared && !this.state.stats.mimicsMet && this.rng.chance(CBAL.mimic.chance)) {
+      this.state.stats.mimicsMet = 1;
       for (const s of this.party) s.hp = Math.min(this.maxHp(s), s.hp + Math.round(this.maxHp(s) * CBAL.mimic.heal));
       const combat = this.startCombat('mimic', e.node, ['mimic'], false);
       return { ok: true, log: [{ text: `Recobráis el aliento (+${Math.round(CBAL.mimic.heal * 100)} % de vida).`, tone: 'good' }], combat };
