@@ -20,6 +20,17 @@ Los PNG quedan en `public/sprites/<modelo>.png` y el juego los usa en todas part
 - **Volver a los dibujados:** añade `?sprites=dibujados` a la URL. Sirve para comparar.
 - **Si una hoja no carga:** ese personaje sale dibujado y queda un aviso en la consola. El juego nunca se queda sin sprite. Qué personaje usa qué modelo se decide en `BLENDER_SPRITES`, en `src/hd2d/characters.ts`.
 
+## El mapa
+
+El mapa del sendero también sale de Blender: `tools/blender/scenes/map.py` construye una maqueta low-poly del territorio y la renderiza en `public/scenes/map.webp`. El juego la pone de fondo y dibuja encima, en SVG, los nodos, caminos, nieblas y oscuridad; la rosa de los vientos, la cartela y los bordes quemados van en otra capa.
+
+- **Datos:** salen del juego con `tools/blender/export-map.ts` (nodos, caminos, río y zonas de la cartela) a `scenes/map.json`. `npm run assets` lo lanza solo, y si cambian los datos el mapa se vuelve a renderizar.
+- **Cámara:** mira desde el sur, inclinada 35°. El suelo se renderiza aplastado y luego se estira, así que cada punto del suelo cae en las mismas coordenadas que usa el juego y lo que tiene altura (montes, árboles, casas) sobresale hacia el norte.
+- **Decorado:** cada nodo tiñe su región según su tipo y la decora a juego (bosque, casas, ruinas, charcas, pinchos). Nada se pone encima de nodos, caminos, río ni cartela.
+- **Si la imagen no carga:** el juego pinta el pergamino por código, como antes.
+
+Renderizarlo tarda un minuto y medio.
+
 ## Archivos
 
 | Archivo | Qué es |
@@ -29,6 +40,7 @@ Los PNG quedan en `public/sprites/<modelo>.png` y el juego los usa en todas part
 | `tools/blender/pixelart.py` | La tubería común: piezas, poses, render y acabado. |
 | `tools/blender/palette.py` | La paleta `C` de `characters.ts`, en rampas de tres tonos. Si cambia una, hay que cambiar la otra. |
 | `tools/blender/sprites/<modelo>.py` | Un archivo por personaje. |
+| `tools/blender/scenes/map.py` | La escena del mapa del sendero; sus datos, en `scenes/map.json` (de `export-map.ts`). |
 
 ## Cómo se renderiza una hoja
 

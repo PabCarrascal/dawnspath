@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Genera las hojas de sprites con Blender en el servidor y las trae a public/sprites/.
+# Renderiza con Blender en el servidor y trae el resultado a public/:
+# los personajes de sprites/ a public/sprites/<nombre>.png y las escenas de
+# scenes/ (el mapa) a public/scenes/<nombre>.webp.
 #
-#   npm run assets              # solo los modelos cambiados desde su último PNG
-#   npm run assets -- --todo    # todos los de tools/blender/sprites/
-#   npm run assets -- hero      # estos, aunque no hayan cambiado
+#   npm run assets              # solo lo que ha cambiado desde su último render
+#   npm run assets -- --todo    # todo
+#   npm run assets -- hero map  # esto, aunque no haya cambiado
 #
-# Un modelo está al día si su PNG es más reciente que su script y que la
-# tubería común (pixelart.py, build.py). Blender está instalado en el servidor
-# (snap); aquí no hace falta. Se puede cambiar de máquina con BLENDER_HOST,
-# BLENDER_PORT y BLENDER_KEY.
+# Algo está al día si su imagen es más reciente que su script, sus datos
+# (scenes/<nombre>.json) y la tubería común (pixelart.py, build.py). Blender
+# está instalado en el servidor (snap); aquí no hace falta. Se puede cambiar de
+# máquina con BLENDER_HOST, BLENDER_PORT y BLENDER_KEY.
 set -euo pipefail
 
 HOST=${BLENDER_HOST:-kayadmin@192.168.1.45}
@@ -18,23 +20,31 @@ REMOTE=dawnspath-assets
 SSH="ssh -p $PORT -i $KEY -o IdentitiesOnly=yes"
 
 here=$(cd "$(dirname "$0")" && pwd)
-out="$here/../../public/sprites"
-all=$(cd "$here/sprites" && ls *.py | sed 's/\.py$//')
+public="$here/../../public"
+
+# Datos del mapa sacados del juego (solo reescribe map.json si han cambiado).
+(cd "$here/../.." && npx vite-node tools/blender/export-map.ts)
+
+# tipo/nombre de cada modelo y escena, y la imagen que produce.
+target() { if [ -f "$here/scenes/$1.py" ]; then echo "scenes/$1"; else echo "sprites/$1"; fi; }
+image() { case "$1" in scenes/*) echo "$public/$1.webp" ;; *) echo "$public/$1.png" ;; esac; }
+all="$(cd "$here" && ls sprites/*.py scenes/*.py 2>/dev/null | sed 's/\.py$//' || true)"
 
 todo=""
 if [ "${1:-}" = "--todo" ]; then
   todo=$all
 elif [ $# -gt 0 ]; then
-  todo="$*"
+  for n in "$@"; do todo="$todo $(target "$n")"; done
 else
-  for m in $all; do
-    png="$out/$m.png"
-    if [ ! -f "$png" ] || [ "$here/sprites/$m.py" -nt "$png" ] || [ "$here/pixelart.py" -nt "$png" ] || [ "$here/build.py" -nt "$png" ]; then
-      todo="$todo $m"
+  for t in $all; do
+    img=$(image "$t")
+    data="$here/$t.json"
+    if [ ! -f "$img" ] || [ "$here/$t.py" -nt "$img" ] || [ "$here/pixelart.py" -nt "$img" ] || [ "$here/build.py" -nt "$img" ] || { [ -f "$data" ] && [ "$data" -nt "$img" ]; }; then
+      todo="$todo $t"
     fi
   done
   if [ -z "$todo" ]; then
-    echo "Todos los sprites están al día (npm run assets -- --todo para rehacerlos)."
+    echo "Todo está al día (npm run assets -- --todo para rehacerlo)."
     exit 0
   fi
 fi
@@ -44,10 +54,9 @@ echo "Renderizando:" $todo
 run="$REMOTE/run-$(date +%s)-$$"
 $SSH "$HOST" "mkdir -p $run"
 rsync -az --exclude __pycache__ -e "$SSH" "$here/" "$HOST:$run/blender/"
-$SSH "$HOST" "cd $run && mkdir out && for m in $todo; do
-  blender -b --factory-startup -P blender/build.py -- \$m out 2>&1 | grep -E '^sprite:|Error|Traceback|^  File|^\w+Error' || true
-  test -f out/\$m.png || { echo \"falló: \$m\"; exit 1; }
+$SSH "$HOST" "cd $run && mkdir out && for t in $todo; do
+  blender -b --factory-startup -P blender/build.py -- \$t out 2>&1 | grep -E '^sprite:|^escena:|Error|Traceback|^  File|^\w+Error' || true
+  ls out/\$t.* >/dev/null 2>&1 || { echo \"falló: \$t\"; exit 1; }
 done" || { $SSH "$HOST" "rm -rf $run"; exit 1; }
-mkdir -p "$out"
-rsync -az -e "$SSH" "$HOST:$run/out/" "$out/"
+rsync -az -e "$SSH" "$HOST:$run/out/" "$public/"
 $SSH "$HOST" "rm -rf $run"

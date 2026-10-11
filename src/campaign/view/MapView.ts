@@ -32,12 +32,12 @@ const GLYPH: Record<NodeType, string> = {
 };
 
 /** Punto de control de cada camino: algo curvo, como trazado a mano. */
-function roadControl(a: { x: number; y: number }, b: { x: number; y: number }) {
+export function roadControl(a: { x: number; y: number }, b: { x: number; y: number }) {
   return { x: (a.x + b.x) / 2 + (b.y - a.y) * 0.08, y: (a.y + b.y) / 2 - (b.x - a.x) * 0.08 };
 }
 
 /** El río: dos tramos de Bézier que bajan del norte y cruzan por el vado. */
-const RIVER = [
+export const RIVER = [
   { x: [680, 640, 700, 605], y: [-10, 120, 260, 385] },
   { x: [605, 540, 680, 650], y: [385, 470, 540, 640] },
 ];
@@ -57,10 +57,18 @@ function busyPoints() {
     }
   }
   for (const leg of RIVER) for (let t = 0; t <= 1; t += 0.04) pts.push({ x: bez(leg.x, t), y: bez(leg.y, t), r: 16 });
-  // La cartela del título y la rosa de los vientos
-  pts.push({ x: 170, y: 585, r: 60 }, { x: 290, y: 585, r: 40 }, { x: 920, y: 548, r: 70 });
+  pts.push(...LABELS);
   return pts;
 }
+
+/** Zonas de la cartela del título y la rosa de los vientos: el decorado no las pisa. */
+export const LABELS = [
+  { x: 170, y: 585, r: 60 },
+  { x: 290, y: 585, r: 40 },
+  { x: 920, y: 548, r: 70 },
+];
+
+const INK = 'rgba(40, 26, 14, 0.8)';
 
 /** Color de la aguada de cada tipo de lugar. */
 const TINT: Record<NodeType, [number, number, number]> = {
@@ -104,7 +112,6 @@ function paintParchment(seed: number): HTMLCanvasElement {
   const rng = new Rng(seed);
   const busy = busyPoints();
   const free = (x: number, y: number, pad = 0) => busy.every((p) => (p.x - x) ** 2 + (p.y - y) ** 2 > (p.r + pad) ** 2);
-  const INK = 'rgba(40, 26, 14, 0.8)';
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
@@ -501,6 +508,12 @@ function paintParchment(seed: number): HTMLCanvasElement {
   // De atrás adelante, para que lo de delante tape a lo de detrás.
   for (const p of pieces.sort((a, b) => a.y - b.y)) p.draw();
 
+  paintFrame(ctx);
+  return c;
+}
+
+/** Rosa de los vientos, cartela con el título y bordes quemados: van encima de cualquier fondo. */
+function paintFrame(ctx: CanvasRenderingContext2D) {
   // ── Rosa de los vientos, con el norte en rojo ──
   const cx = 920;
   const cy = 548;
@@ -552,6 +565,18 @@ function paintParchment(seed: number): HTMLCanvasElement {
   edge.addColorStop(1, 'rgba(40, 20, 5, 0.6)');
   ctx.fillStyle = edge;
   ctx.fillRect(0, 0, MAP_W, MAP_H);
+}
+
+/** Lienzo transparente solo con la rosa, la cartela y los bordes (sobre el mapa de Blender). */
+function frameCanvas(): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = MAP_W * 2;
+  c.height = MAP_H * 2;
+  const ctx = c.getContext('2d')!;
+  ctx.scale(2, 2);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  paintFrame(ctx);
   return c;
 }
 
@@ -571,7 +596,18 @@ export class MapView {
   ) {
     this.el = document.createElement('div');
     this.el.className = 'cp-map-frame';
-    this.el.appendChild(paintParchment(campaign.state.seed));
+    // El terreno renderizado en Blender (tools/blender/scenes/map.py) con la rosa y la cartela
+    // encima; si la imagen no carga, el pergamino pintado por código, que ya las trae.
+    const art = new Image();
+    art.className = 'cp-map-art';
+    art.alt = '';
+    art.src = 'scenes/map.webp';
+    const frame = frameCanvas();
+    art.addEventListener('error', () => {
+      frame.remove();
+      art.replaceWith(paintParchment(campaign.state.seed));
+    });
+    this.el.append(art, frame);
     this.svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     this.svg.setAttribute('viewBox', `0 0 ${MAP_W} ${MAP_H}`);
     this.el.appendChild(this.svg);

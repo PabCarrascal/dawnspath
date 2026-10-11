@@ -1,0 +1,267 @@
+{
+ "w": 1000,
+ "h": 620,
+ "nodes": [
+  {
+   "id": "castle",
+   "type": "castle",
+   "x": 110,
+   "y": 480,
+   "boss": false
+  },
+  {
+   "id": "prado",
+   "type": "meadow",
+   "x": 270,
+   "y": 420,
+   "boss": false
+  },
+  {
+   "id": "robledal",
+   "type": "village",
+   "x": 225,
+   "y": 250,
+   "boss": false
+  },
+  {
+   "id": "bosque",
+   "type": "forest",
+   "x": 420,
+   "y": 300,
+   "boss": false
+  },
+  {
+   "id": "ruinas",
+   "type": "ruins",
+   "x": 420,
+   "y": 515,
+   "boss": false
+  },
+  {
+   "id": "cubil",
+   "type": "den",
+   "x": 590,
+   "y": 555,
+   "boss": false
+  },
+  {
+   "id": "vado",
+   "type": "ford",
+   "x": 600,
+   "y": 385,
+   "boss": false
+  },
+  {
+   "id": "ermita",
+   "type": "shrine",
+   "x": 560,
+   "y": 170,
+   "boss": false
+  },
+  {
+   "id": "paso",
+   "type": "mountain",
+   "x": 750,
+   "y": 235,
+   "boss": false
+  },
+  {
+   "id": "molino",
+   "type": "village",
+   "x": 765,
+   "y": 470,
+   "boss": false
+  },
+  {
+   "id": "marjal",
+   "type": "bog",
+   "x": 895,
+   "y": 380,
+   "boss": false
+  },
+  {
+   "id": "torre",
+   "type": "lair",
+   "x": 890,
+   "y": 160,
+   "boss": true
+  }
+ ],
+ "roads": [
+  {
+   "a": "castle",
+   "b": "prado",
+   "c": {
+    "x": 185.2,
+    "y": 437.2
+   }
+  },
+  {
+   "a": "prado",
+   "b": "robledal",
+   "c": {
+    "x": 233.9,
+    "y": 338.6
+   }
+  },
+  {
+   "a": "prado",
+   "b": "bosque",
+   "c": {
+    "x": 335.4,
+    "y": 348
+   }
+  },
+  {
+   "a": "prado",
+   "b": "ruinas",
+   "c": {
+    "x": 352.6,
+    "y": 455.5
+   }
+  },
+  {
+   "a": "robledal",
+   "b": "bosque",
+   "c": {
+    "x": 326.5,
+    "y": 259.4
+   }
+  },
+  {
+   "a": "bosque",
+   "b": "ermita",
+   "c": {
+    "x": 479.6,
+    "y": 223.8
+   }
+  },
+  {
+   "a": "bosque",
+   "b": "vado",
+   "c": {
+    "x": 516.8,
+    "y": 328.1
+   }
+  },
+  {
+   "a": "ruinas",
+   "b": "cubil",
+   "c": {
+    "x": 508.2,
+    "y": 521.4
+   }
+  },
+  {
+   "a": "ruinas",
+   "b": "vado",
+   "c": {
+    "x": 499.6,
+    "y": 435.6
+   }
+  },
+  {
+   "a": "cubil",
+   "b": "molino",
+   "c": {
+    "x": 670.7,
+    "y": 498.5
+   }
+  },
+  {
+   "a": "vado",
+   "b": "paso",
+   "c": {
+    "x": 663,
+    "y": 298
+   }
+  },
+  {
+   "a": "vado",
+   "b": "molino",
+   "c": {
+    "x": 689.3,
+    "y": 414.3
+   }
+  },
+  {
+   "a": "ermita",
+   "b": "paso",
+   "c": {
+    "x": 660.2,
+    "y": 187.3
+   }
+  },
+  {
+   "a": "paso",
+   "b": "torre",
+   "c": {
+    "x": 814,
+    "y": 186.3
+   }
+  },
+  {
+   "a": "molino",
+   "b": "marjal",
+   "c": {
+    "x": 822.8,
+    "y": 414.6
+   }
+  },
+  {
+   "a": "marjal",
+   "b": "torre",
+   "c": {
+    "x": 874.9,
+    "y": 270.4
+   }
+  }
+ ],
+ "river": [
+  {
+   "x": [
+    680,
+    640,
+    700,
+    605
+   ],
+   "y": [
+    -10,
+    120,
+    260,
+    385
+   ]
+  },
+  {
+   "x": [
+    605,
+    540,
+    680,
+    650
+   ],
+   "y": [
+    385,
+    470,
+    540,
+    640
+   ]
+  }
+ ],
+ "labels": [
+  {
+   "x": 170,
+   "y": 585,
+   "r": 60
+  },
+  {
+   "x": 290,
+   "y": 585,
+   "r": 40
+  },
+  {
+   "x": 920,
+   "y": 548,
+   "r": 70
+  }
+ ]
+}

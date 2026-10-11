@@ -1,9 +1,11 @@
 """
 Entrada para Blender, en el servidor (la lanza run.sh):
 
-    blender -b --factory-startup -P build.py -- <modelo> <carpeta de salida>
+    blender -b --factory-startup -P build.py -- <tipo>/<nombre> <carpeta de salida>
 
-Carga sprites/<modelo>.py y escribe <carpeta>/<modelo>.png.
+- sprites/<nombre>.py: un personaje; escribe <salida>/sprites/<nombre>.png.
+- scenes/<nombre>.py: una escena con su propia función render(ruta); escribe
+  <salida>/scenes/<nombre>.webp.
 """
 
 import importlib
@@ -14,5 +16,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import pixelart  # noqa: E402
 
-name, out = sys.argv[sys.argv.index("--") + 1 :][:2]
-pixelart.sheet(importlib.import_module(f"sprites.{name}"), os.path.join(out, f"{name}.png"))
+target, out = sys.argv[sys.argv.index("--") + 1 :][:2]
+kind, name = target.split("/")
+module = importlib.import_module(f"{kind}.{name}")
+os.makedirs(os.path.join(out, kind), exist_ok=True)
+if kind == "scenes":
+    module.render(os.path.join(out, kind, f"{name}.webp"))
+else:
+    pixelart.sheet(module, os.path.join(out, kind, f"{name}.png"))
