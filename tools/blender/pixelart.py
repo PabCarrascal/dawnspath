@@ -18,6 +18,7 @@ from math import cos, radians, sin
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
+from palette import NO_GRAIN
 
 FRAMES = 4
 SPRITE_RES = 2
@@ -295,12 +296,25 @@ LEFT, RIGHT, UP, DOWN = (0, -1), (0, 1), (1, 0), (-1, 0)
 
 
 def _finish(img):
-    """Como finish() de characters.ts: luz en los bordes de arriba a la izquierda, sombra abajo a la derecha."""
+    """
+    Como finish() de characters.ts: luz en los bordes de arriba a la izquierda,
+    sombra abajo a la derecha y, dentro, trama en las telas: un píxel algo más
+    oscuro cada tanto donde los ocho vecinos son del mismo color.
+    """
+    h, w = img.shape[:2]
     solid = img[..., 3] > 0.5
     lit = solid & (~_at(solid, *LEFT) | ~_at(solid, *UP))
     dim = solid & ~lit & (~_at(solid, *RIGHT) | ~_at(solid, *DOWN))
+    hexes = np.round(img[..., :3] * 255).astype(np.int32) @ np.array([65536, 256, 1])
+    even = solid.copy()
+    for dy in (-1, 0, 1):
+        for dx in (-1, 0, 1):
+            even &= _at(solid, dy, dx) & (_at(hexes, dy, dx, fill=-1) == hexes)
+    y, x = np.mgrid[h - 1 : -1 : -1, 0:w]
+    grain = even & ~lit & ~dim & ~np.isin(hexes, list(NO_GRAIN)) & ((x * 7 + y * 13) % 9 == 0)
     img[lit, :3] = _mix(img[lit, :3], rgb(LIGHT), 0.22)
     img[dim, :3] = _mix(img[dim, :3], rgb(SHADOW), 0.2)
+    img[grain, :3] = _mix(img[grain, :3], rgb(SHADOW), 0.1)
     return img
 
 

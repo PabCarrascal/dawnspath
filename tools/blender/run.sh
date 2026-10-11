@@ -40,11 +40,14 @@ else
 fi
 echo "Renderizando:" $todo
 
-$SSH "$HOST" "mkdir -p $REMOTE"
-rsync -az --delete --exclude __pycache__ -e "$SSH" "$here/" "$HOST:$REMOTE/blender/"
-$SSH "$HOST" "cd $REMOTE && rm -rf out && mkdir out && for m in $todo; do
+# Cada ejecución en su propia carpeta del servidor: se pueden lanzar varias a la vez.
+run="$REMOTE/run-$(date +%s)-$$"
+$SSH "$HOST" "mkdir -p $run"
+rsync -az --exclude __pycache__ -e "$SSH" "$here/" "$HOST:$run/blender/"
+$SSH "$HOST" "cd $run && mkdir out && for m in $todo; do
   blender -b --factory-startup -P blender/build.py -- \$m out 2>&1 | grep -E '^sprite:|Error|Traceback|^  File|^\w+Error' || true
   test -f out/\$m.png || { echo \"falló: \$m\"; exit 1; }
-done"
+done" || { $SSH "$HOST" "rm -rf $run"; exit 1; }
 mkdir -p "$out"
-rsync -az -e "$SSH" "$HOST:$REMOTE/out/" "$out/"
+rsync -az -e "$SSH" "$HOST:$run/out/" "$out/"
+$SSH "$HOST" "rm -rf $run"
