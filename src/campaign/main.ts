@@ -854,6 +854,9 @@ function showMap() {
 
 // ───────────────────────── combate ─────────────────────────
 
+/** Durante un combate, deja el combate a medias (para salir a la portada desde Ajustes). */
+let leaveCombat: (() => void) | null = null;
+
 async function fight() {
   const c = campaign;
   const p = c.state.pending!;
@@ -878,7 +881,17 @@ async function fight() {
     view: (hooks) => Hd2dCombatView.create(stage, combat, tod, p.seed, hooks, nodeSeed(p.node)),
   });
   if (import.meta.env.DEV) Object.assign(window, { combat, view: session.view });
-  await session.done;
+  const left = new Promise<'left'>((r) => (leaveCombat = () => r('left')));
+  const outcome = await Promise.race([session.done, left]);
+  leaveCombat = null;
+  // Se sale a la portada: el combate sigue pendiente y se librará de nuevo al continuar.
+  if (outcome === 'left') {
+    await fade(() => {
+      session.dispose();
+      showTitle();
+    });
+    return;
+  }
   const r = c.resolveCombat(combat);
   save();
   await fade(() => session.dispose());
@@ -957,7 +970,9 @@ function namesSection(): SettingsSection {
   body.innerHTML = `
     <p class="set-label">Nombres de los soldados</p>
     <label class="set-choice"><input type="radio" name="names" value="classic" /> Clásicos <small>Bram, Ilse…</small></label>
-    <label class="set-choice"><input type="radio" name="names" value="fun" /> Con gracia <small>Susana Oria, Elena Nito del Bosque…</small></label>`;
+    <label class="set-choice"><input type="radio" name="names" value="fun" /> Con gracia <small>Susana Oria, Elena Nito del Bosque…</small></label>
+    <button class="set-btn" data-act="quit">Salir al menú principal</button>`;
+  body.querySelector('[data-act="quit"]')!.addEventListener('click', quitToTitle);
   const radios = [...body.querySelectorAll<HTMLInputElement>('input[name="names"]')];
   const pref = namePref();
   for (const r of radios) {
@@ -989,4 +1004,22 @@ ui.addEventListener('click', (e) => {
 // Por si se pulsa antes de que la pantalla de carga pida el gesto.
 window.addEventListener('pointerdown', () => audio.unlock(), { once: true });
 window.addEventListener('keydown', () => audio.unlock(), { once: true });
-mountSettings([soundSection(), namesSection(), tipsSection()]);
+const settings = mountSettings([soundSection(), namesSection(), tipsSection()]);
+// En la portada no hay de dónde salir.
+settings.toggle.addEventListener('click', () => {
+  settings.root.querySelector<HTMLButtonElement>('[data-act="quit"]')!.hidden = !campaign || !!$('.cp-title', ui);
+});
+
+/**
+ * Guarda y vuelve a la portada. En combate, avisa antes: el combate no se guarda
+ * a medias y, al continuar, se librará desde el principio.
+ */
+function quitToTitle() {
+  if (leaveCombat && !confirm('¿Salir al menú principal? El combate en curso se perderá; al continuar, se volverá a librar desde el principio.')) return;
+  audio.play('click');
+  settings.root.classList.remove('open');
+  closeModal();
+  save();
+  if (leaveCombat) return leaveCombat();
+  void fade(() => showTitle());
+}
