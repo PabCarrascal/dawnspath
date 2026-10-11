@@ -1,4 +1,4 @@
-import type { BuildingId, NodeDef, Resources, SoldierKind, Structure } from './types';
+import type { BuildingId, NodeDef, NodeType, Resources, SoldierKind, Structure } from './types';
 
 /** Equilibrio de la campaña; el bot (`npm run sim`) ayuda a ajustarlo. */
 export const CBAL = {
@@ -21,6 +21,21 @@ export const CBAL = {
   roadAmbush: 0.2,
   /** Probabilidad de que las criaturas retomen un nodo limpio sin guardia (los vecinos del castillo no). */
   retake: 0.2,
+  /**
+   * Producción del territorio: lo que manda al castillo cada amanecer cada
+   * lugar liberado (sin criaturas ni oscuridad), según lo que es.
+   */
+  produce: {
+    forest: { materials: 3 },
+    ruins: { stone: 3 },
+    mountain: { stone: 2, materials: 1 },
+    ford: { stone: 2, materials: 1 },
+    // Las aldeas libres pagan además un pequeño tributo.
+    village: { materials: 2, gold: 5 },
+    // El prado, junto al castillo, da algo de oro: es una renta fija desde el principio.
+    meadow: { materials: 1, gold: 4 },
+    bog: { materials: 1 },
+  } as Partial<Record<NodeType, Partial<Resources>>>,
   /** Centinela pagado: hace guardia sin restar al grupo. Coste en oro de la caravana y lo que aporta a la defensa. */
   sentinel: { cost: 20, defense: 0.9 },
   /** Los soldados de guardia descansan cada noche que no les atacan. */

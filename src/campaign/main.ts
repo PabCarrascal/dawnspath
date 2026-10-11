@@ -805,6 +805,11 @@ function showMap() {
           ? `<p>Quedan <b>${e.hours} h</b> de luz.</p>`
           : ''
       }
+      ${
+        Object.values(c.production()).some((v) => v)
+          ? `<p class="cp-prod">El territorio produce al día: ${costHtml(c.production())}</p>`
+          : ''
+      }
       <p class="cp-dark-line">${
         c.state.siege !== null
           ? `<b>Asedio:</b> ${c.state.siege} ${c.state.siege === 1 ? 'día' : 'días'}.`

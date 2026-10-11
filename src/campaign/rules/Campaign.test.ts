@@ -497,6 +497,34 @@ describe('campaña: nombres', () => {
   });
 });
 
+describe('campaña: producción del territorio', () => {
+  it('lo liberado produce cada amanecer y llega al castillo', () => {
+    const c = new Campaign(1);
+    const [, spear, archer] = c.state.soldiers;
+    hold(c, 'prado');
+    hold(c, 'robledal');
+    hold(c, 'bosque', spear.id);
+    hold(c, 'ruinas', archer.id);
+    // Bosque 3 materiales, ruinas 3 de piedra, aldea 5 de oro y 2 materiales, prado 4 de oro y 1 material.
+    expect(c.production()).toEqual({ gold: 9, materials: 6, stone: 3 });
+    const before = { ...c.state.stock };
+    withBal('garrisonAttack', 0, () => c.rest());
+    expect(c.state.stock.materials).toBe(before.materials + 6);
+    expect(c.state.stock.stone).toBe(before.stone + 3);
+    expect(c.state.stock.gold).toBe(before.gold + 9);
+  });
+
+  it('lo que tiene criaturas u oscuridad no produce', () => {
+    const c = new Campaign(1);
+    expect(c.held('bosque')).toBe(false);
+    hold(c, 'bosque');
+    expect(c.held('bosque')).toBe(true);
+    c.node('bosque').dark = true;
+    expect(c.held('bosque')).toBe(false);
+    expect(c.production().materials).toBe(0);
+  });
+});
+
 describe('campaña: hazañas', () => {
   it('al empezar no hay ninguna', () => {
     expect(featsDone(new Campaign(1))).toEqual([]);

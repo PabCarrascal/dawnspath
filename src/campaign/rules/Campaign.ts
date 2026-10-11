@@ -958,11 +958,46 @@ export class Campaign {
     return { ok: true, log };
   }
 
+  // ───────────────────────── territorio ─────────────────────────
+
+  /**
+   * Si el lugar está en manos del Alba: liberado (limpio o asegurado) y sin
+   * oscuridad. Lo que no tiene guardia produce igual, pero puede perderse de
+   * noche; la guardia y la retaguardia protegen la producción.
+   */
+  held(id: string) {
+    const st = this.status(id);
+    return !this.node(id).dark && (st === 'secured' || st === 'cleared');
+  }
+
+  /** Lo que el territorio en manos del Alba manda al castillo cada día. */
+  production(): Resources {
+    const got: Resources = { gold: 0, materials: 0, stone: 0 };
+    for (const d of MAP) {
+      const yields = CBAL.produce[d.type];
+      if (!yields || !this.held(d.id)) continue;
+      for (const k of RES) got[k] += yields[k] ?? 0;
+    }
+    return got;
+  }
+
+  /** Al amanecer, la producción del territorio llega al castillo. */
+  private produce(): LogLine[] {
+    const got = this.production();
+    if (!RES.some((k) => got[k])) return [];
+    const total = (this.state.stats.produced ??= { gold: 0, materials: 0, stone: 0 });
+    for (const k of RES) {
+      this.state.stock[k] += got[k];
+      total[k] += got[k];
+    }
+    return [{ text: `Del territorio llegan ${formatRes(got)} al castillo.`, tone: 'good' }];
+  }
+
   // ───────────────────────── oscuridad ─────────────────────────
 
   /** Pasa un día: avanza el reloj de la oscuridad y el asedio. */
   private advanceDay(): LogLine[] {
-    const log: LogLine[] = [];
+    const log: LogLine[] = this.produce();
     this.state.day++;
     this.state.darkClock--;
     if (this.state.darkClock <= 0) {

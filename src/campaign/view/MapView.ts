@@ -1,6 +1,7 @@
 import { Rng } from '../../core/rng';
 import type { Campaign } from '../rules/Campaign';
-import { MAP, NODE, STRUCTURES } from '../rules/data';
+import { CBAL, MAP, NODE, STRUCTURES } from '../rules/data';
+import { costHtml } from '../../ui/icons';
 import type { NodeStatus, NodeType } from '../rules/types';
 
 export const MAP_W = 1000;
@@ -664,6 +665,8 @@ export class MapView {
       const who = [...ns.garrison.map((g) => c.soldier(g)?.name), ...(ns.sentinels ? [ns.sentinels === 1 ? 'un centinela' : `${ns.sentinels} centinelas`] : [])];
       lines.push(`<p>${STRUCTURES[ns.structure].name} · ${who.length ? `de guardia: ${who.join(', ')}` : 'sin guardia'}</p>`);
     }
+    const yields = CBAL.produce[def.type];
+    if (yields && st !== 'unknown') lines.push(c.held(id) ? `<p class="good">Produce cada día: ${costHtml(yields)}</p>` : `<p>Liberado, produciría: ${costHtml(yields)}</p>`);
     if (st === 'cleared' && c.shielded(id)) lines.push('<p class="good">Retaguardia: a salvo.</p>');
     else if (st === 'cleared' && id !== 'castle' && def.type !== 'village') lines.push('<p class="warn">Sin guardia: pueden retomarlo.</p>');
     if (st === 'secured') lines.push('<p class="good">Asegurado: se cruza en 1 hora y sin riesgo.</p>');

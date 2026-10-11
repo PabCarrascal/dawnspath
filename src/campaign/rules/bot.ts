@@ -41,6 +41,8 @@ export interface BotSummary {
   deaths: number;
   nights: number;
   buildings: Record<BuildingId, number>;
+  /** Lo que produjo el territorio en toda la campaña. */
+  produced: { gold: number; materials: number; stone: number };
   /** Hazañas conseguidas en la campaña. */
   feats: string[];
 }
@@ -78,6 +80,7 @@ export function playCampaign(seed: number, maxDays = 80, style: BotStyle = {}): 
     nights: s.stats.nights,
     buildings: { ...s.buildings },
     feats: featsDone(c),
+    produced: { gold: 0, materials: 0, stone: 0, ...s.stats.produced },
   };
 }
 

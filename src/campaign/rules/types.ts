@@ -179,6 +179,8 @@ export interface CampaignState {
     siegesLifted?: number;
     virtues?: number;
     heroDowned?: number;
+    /** Lo que ha producido el territorio en toda la campaña. */
+    produced?: Resources;
     /** Máximo de nodos en retaguardia a la vez. */
     maxShielded?: number;
   };

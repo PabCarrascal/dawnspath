@@ -26,3 +26,4 @@ console.log(`derrotas por: ${Object.entries(reasons).map(([k, v]) => `${k} (${v}
 console.log(`nodos oscuros como máximo ${avg((r) => r.maxDark)}`);
 console.log(`edificios al final: herrería ${avg((r) => r.buildings.smithy)} · taberna ${avg((r) => r.buildings.tavern)} · logia ${avg((r) => r.buildings.lodge)}`);
 console.log(`hazañas: ${FEATS.map((f) => `${f.name} ${pct(runs.filter((r) => r.feats.includes(f.id)).length)}`).join(' · ')}`);
+console.log(`producción del territorio por campaña: oro ${avg((r) => r.produced.gold)} · materiales ${avg((r) => r.produced.materials)} · piedra ${avg((r) => r.produced.stone)}`);
