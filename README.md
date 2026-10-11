@@ -70,7 +70,7 @@ src/
 
 ## Arte
 
-Cómo conectar Blender MCP y producir fondos y sprites a partir de assets de Poly Haven: [`docs/blender.md`](docs/blender.md).
+Los personajes se modelan en Blender y se renderizan como pixel art (`npm run assets`): [`docs/blender.md`](docs/blender.md). Blender corre en rdtserver; el acceso por SSH está en [`docs/rdtserver.md`](docs/rdtserver.md).
 
 ## Música
 
