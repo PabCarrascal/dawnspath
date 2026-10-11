@@ -720,7 +720,12 @@ function selOut(p: Px) {
 const LOADED = new Map<SpriteKind, Px>();
 
 /** Modelo de tools/blender/sprites/ que hace de cada personaje con `?sprites=blender`. */
-export const BLENDER_SPRITES: Partial<Record<SpriteKind, string>> = { hero: 'hero' };
+export const BLENDER_SPRITES: Partial<Record<SpriteKind, string>> = {
+  hero: 'hero',
+  spearman: 'spearman',
+  archer: 'archer',
+  chaplain: 'chaplain',
+};
 
 /** Carga las hojas de Blender (public/sprites/) y las usa en lugar de las dibujadas. */
 export async function useBlenderSprites() {

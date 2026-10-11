@@ -83,6 +83,8 @@ ADD = {
     "ball": lambda: _op(bpy.ops.mesh.primitive_uv_sphere_add, radius=0.5, segments=12, ring_count=8),
     "tube": lambda: _op(bpy.ops.mesh.primitive_cylinder_add, radius=0.5, depth=1, vertices=12),
     "cone": lambda: _op(bpy.ops.mesh.primitive_cone_add, radius1=0.5, radius2=0, depth=1, vertices=10),
+    # Tronco de cono: la tapa de arriba mide `taper` veces la de abajo (hábitos, faldas).
+    "frustum": lambda taper=0.6: _op(bpy.ops.mesh.primitive_cone_add, radius1=0.5, radius2=0.5 * taper, depth=1, vertices=14),
     "wedge": _wedge,
     "pleats": _pleats,
 }
@@ -123,9 +125,13 @@ class Rig:
         self.rest[name] = Vector(loc)
         return o
 
-    def part(self, kind, parent, loc, size, color, rot=(0, 0, 0), mark=None):
-        """Pieza de tamaño `size` (caja envolvente), en coordenadas de su pivote; `mark` le pone una trama de PATTERNS."""
-        o = ADD[kind]()
+    def part(self, kind, parent, loc, size, color, rot=(0, 0, 0), mark=None, **shape):
+        """
+        Pieza de tamaño `size` (caja envolvente), en coordenadas de su pivote; `mark`
+        le pone una trama de PATTERNS y `shape` pasa opciones a la primitiva
+        (taper del frustum; folds, taper, depth y span de pleats).
+        """
+        o = ADD[kind](**shape)
         o.parent = self.pivots[parent]
         o.location = loc
         o.rotation_euler = [radians(a) for a in rot]
