@@ -13,6 +13,12 @@ export type TreeKind = 'round' | 'pine' | 'dead' | 'willow';
 /** Luz que depende de la hora: farolas y ventanas se encienden de noche; los cristales siempre brillan. */
 type LightKind = 'lamp' | 'fire' | 'always';
 
+/** Variantes de cada árbol hechas en Blender (public/models/tree_<tipo>_<n>.glb). */
+const TREE_VARIANTS: Record<TreeKind, number> = { round: 3, pine: 3, willow: 2, dead: 2 };
+
+/** Número estable para un punto de la maqueta: elige variantes sin gastar azar. */
+const spot = (x: number, z: number) => Math.abs(Math.floor(x * 7.31 + z * 13.17));
+
 /** Pizarra azulada de los tejados. */
 const SLATE = [0x4a4a5a, 0x56566a, 0x62627a, 0x34343e];
 
@@ -287,8 +293,26 @@ export class Kit {
       }
     }
     t.add(crown);
-    this.crowns.push({ obj: crown, phase: r() * 10 });
-    return this.add(t, x, z, this.y(x, z), r() * Math.PI * 2);
+    const sway = { obj: crown as THREE.Object3D, phase: r() * 10 };
+    this.crowns.push(sway);
+    const out = this.add(t, x, z, this.y(x, z), r() * Math.PI * 2);
+    // Modelo de Blender (tools/blender/nature.py) con las texturas de aquí; la variante sale de
+    // la posición, no del azar, para no cambiar cómo se reparte la maqueta.
+    const variant = 1 + (spot(x, z) % TREE_VARIANTS[kind]);
+    const tones = px.LEAF_TONES[leaf];
+    this.model(`tree_${kind}_${variant}`, out, {
+      scale: s,
+      materials: {
+        bark: this.mat('bark', () => px.bark(this.seed)),
+        deadwood: this.color(0x3a2e2a),
+        twigs: this.color(0x2e2422),
+        leaves: this.mat(`leaf2-${leaf}`, () => px.leaves(this.seed + leaf.length * 7, tones), { flatShading: true, roughness: 0.9, vertexColors: true }),
+        leafcard: this.mat(`leafcard-${leaf}`, () => px.leafCard(this.seed + 21 + leaf.length, tones), { side: THREE.DoubleSide, alphaTest: 0.5, roughness: 0.9 }),
+        frond: this.mat(`frond-${leaf}`, () => px.moss(this.seed + 41), { side: THREE.DoubleSide, alphaTest: 0.5, color: tones[3] }),
+      },
+      ready: (o) => (sway.obj = o.getObjectByName('crown') ?? sway.obj),
+    });
+    return out;
   }
 
   /** Geometría con color por vértice: más oscura abajo y más clara arriba (volumen sin luz extra). */
@@ -345,7 +369,13 @@ export class Kit {
       cap.position.y = 0.72;
       m.add(cap);
     }
-    return this.add(m, x, z, this.y(x, z) + r * 0.3);
+    const out = this.add(m, x, z, this.y(x, z) + r * 0.3);
+    // Roca de Blender (tools/blender/nature.py), con la piedra de este bioma; el gorro de nieve solo si toca.
+    this.model(`rock_${1 + (spot(x, z) % 4)}`, out, {
+      materials: { stone: m.material as THREE.Material, snow: this.mat('snow', () => px.snow(this.seed + 6)) },
+      ready: (o) => void (!snowy && o.getObjectByName('snowcap')?.removeFromParent()),
+    });
+    return out;
   }
 
   mushroom(x: number, z: number, s: number) {
@@ -472,7 +502,7 @@ export class Kit {
    * que se llaman como una textura del juego la toman, y window y fire se
    * encienden de noche como las ventanas y fuegos de siempre.
    */
-  model(name: string, stand: THREE.Object3D) {
+  model(name: string, stand: THREE.Object3D, opts: { scale?: number; materials?: Record<string, THREE.Material>; ready?: (o: THREE.Object3D) => void } = {}) {
     void loadModel(name).then((src) => {
       if (!src || !stand.parent) return;
       const o = src.clone(true);
@@ -481,10 +511,14 @@ export class Kit {
         if (!m.isMesh) return;
         m.castShadow = true;
         m.receiveShadow = true;
-        m.material = this.named((m.material as THREE.Material).name) ?? m.material;
+        const key = (m.material as THREE.Material).name;
+        m.material = opts.materials?.[key] ?? this.named(key) ?? m.material;
       });
       o.position.copy(stand.position);
       o.rotation.copy(stand.rotation);
+      if (opts.scale !== undefined) o.scale.setScalar(opts.scale);
+      else o.scale.copy(stand.scale);
+      opts.ready?.(o);
       stand.parent.add(o);
       stand.removeFromParent();
     });

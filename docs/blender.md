@@ -40,6 +40,14 @@ La herrería, la taberna y la logia del castillo, y las seis casas de las aldeas
 - **Si un modelo no carga:** se queda la casa de siempre.
 - Las piezas comunes (cajas, vigas, tejados a dos aguas, tejadillos) están en `tools/blender/modeling.py`.
 
+## Árboles y rocas
+
+Los árboles y las rocas de todas las maquetas también son modelos de Blender (`tools/blender/nature.py`, con una variante por archivo en `models/`): frondosos, pinos, sauces y árboles muertos con tres o dos variantes cada uno, y cuatro rocas (dos planas).
+
+- **Lo que pone el juego:** la corteza, el color de las hojas de cada bioma (verde, otoño, dorado, nevado), la piedra de cada bioma y la nieve de las rocas nevadas. Las copas cuelgan de un nodo `crown`, que el juego mece con el viento como antes.
+- **Variante:** se elige por la posición del árbol o la roca, no por azar, para que las maquetas se repartan igual que siempre.
+- **Mientras cargan (o si faltan):** los árboles y rocas generados por código.
+
 ## La portada
 
 La pantalla de carga muestra un amanecer sobre el castillo del Alba: `tools/blender/scenes/splash.py` renderiza 36 cuadros con el cielo físico de Blender (el sol sube de bajo el horizonte y las ventanas se apagan) y ffmpeg, en el servidor, los convierte en `public/scenes/splash.webm` y `.mp4`, fundiendo cuadros para que el movimiento sea suave. También deja el último cuadro en `splash.webp`.
@@ -58,7 +66,7 @@ La pantalla de carga muestra un amanecer sobre el castillo del Alba: `tools/blen
 | `tools/blender/palette.py` | La paleta `C` de `characters.ts`, en rampas de tres tonos. Si cambia una, hay que cambiar la otra. |
 | `tools/blender/sprites/<modelo>.py` | Un archivo por personaje. |
 | `tools/blender/scenes/splash.py` | El amanecer de la portada (vídeo). |
-| `tools/blender/models/<nombre>.py` | Modelos 3D de los edificios del castillo y las casas de aldea (GLB); piezas comunes en `modeling.py`. |
+| `tools/blender/models/<nombre>.py` | Modelos 3D (GLB): edificios del castillo, casas de aldea, árboles y rocas; piezas comunes en `modeling.py` y `nature.py`. |
 | `tools/blender/scenes/map.py` | La escena del mapa del sendero; sus datos, en `scenes/map.json` (de `export-map.ts`). |
 
 ## Cómo se renderiza una hoja

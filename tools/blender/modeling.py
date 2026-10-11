@@ -194,5 +194,6 @@ def export(path):
         bpy.ops.mesh.select_all(action="SELECT")
         bpy.ops.uv.reset()
         bpy.ops.object.mode_set(mode="OBJECT")
-    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", export_yup=True, export_apply=True, export_materials="EXPORT")
+    # Con el color por vértice activo (el degradado de las copas de los árboles).
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", export_yup=True, export_apply=True, export_materials="EXPORT", export_vertex_color="ACTIVE")
     print(f"modelo: {path}")
