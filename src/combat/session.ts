@@ -73,7 +73,12 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
     : o.app
       ? CombatView.mount(o.app, combat, time, seed, hooks)
       : await CombatView.create(o.stage, combat, time, seed, hooks);
-  const ui = new CombatUi(o.overlay, combat, { onSkill: (sid) => choose(sid), onRetreat: () => retreat() });
+  const ui = new CombatUi(o.overlay, combat, {
+    onSkill: (sid) => choose(sid),
+    onRetreat: () => retreat(),
+    onTarget: (fid) => click(fid),
+    onHover: (fid) => hover(fid),
+  });
 
   const uiHooks = {
     banner: (text: string, tone: 'bad' | 'good' | 'epic', sub?: string) => ui.banner(text, tone, sub),
@@ -85,6 +90,7 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
     round: (r: number, order: number[]) => ui.round(r, order),
     turn: (fid: number) => {
       ui.turn(fid);
+      ui.renderRoster();
       ui.showActor(combat.fighter(fid) ?? null);
     },
     sound: (name: string) => audio.play(name as Parameters<typeof audio.play>[0]),
@@ -107,6 +113,7 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
     busy = true;
     ui.setPlayerTurn(false);
     view.setTargets([], 'enemy');
+    ui.setTargets([], 'enemy');
     await view.play(events, uiHooks);
     busy = false;
     next();
@@ -133,9 +140,13 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
     const actor = combat.active;
     if (!actor || combat.state.phase !== 'player') return;
     ui.showSkills(actor, selected);
+    ui.renderRoster();
     if (!selected) return view.setTargets([], 'enemy');
     const skill = combat.skill(selected);
-    view.setTargets(combat.targets(actor.id, selected), skill.target.side === 'enemy' ? 'enemy' : 'ally');
+    const ids = combat.targets(actor.id, selected);
+    const mode = skill.target.side === 'enemy' ? 'enemy' : 'ally';
+    view.setTargets(ids, mode);
+    ui.setTargets(ids, mode);
   };
 
   const choose = (sid: string) => {

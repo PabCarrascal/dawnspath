@@ -314,7 +314,7 @@ button.cp-link {
 /* ───────────────────────── edificios del castillo ───────────────────────── */
 
 .cp-hotspot {
-  position: absolute;
+  position: fixed;
   transform: translate(-50%, -100%);
   padding: 6px 14px;
   border: 1px solid var(--panel-edge);
@@ -1032,4 +1032,95 @@ em.affl {
 .cp-feats small {
   font-size: 14px;
   color: var(--bone-dim);
+}
+
+/* Los botones de los edificios van en el panel, pero en escritorio flotan sobre la maqueta (fijos) y no ocupan sitio */
+.cp-hotspots {
+  display: contents;
+}
+
+/* ───────────────────────── móvil ───────────────────────── */
+
+@media (max-width: 640px) {
+  /* Cabecera compacta: todo en una o dos filas pequeñas */
+  .cp-hud {
+    top: 8px !important;
+    left: 8px !important;
+    gap: 6px !important;
+  }
+  .cp-hud > div {
+    padding: 3px 8px !important;
+  }
+  .cp-day b {
+    font-size: 18px;
+  }
+  .cp-res {
+    gap: 4px !important;
+    font-size: 14px !important;
+  }
+  .cp-res img.ic {
+    margin-right: 0;
+  }
+  .cp-res .amt + .amt {
+    margin-left: 4px;
+  }
+  .cp-dark {
+    font-size: 13px;
+  }
+  .cp-hours > i {
+    width: 56px !important;
+  }
+  .cp-where {
+    font-size: 14px !important;
+  }
+  .cp-where small {
+    display: none;
+  }
+
+  /* Edificios: una fila de botones encima de las fichas */
+  .cp-hotspots {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+  }
+  .cp-hotspot {
+    position: static !important;
+    transform: none !important;
+    padding: 4px 10px;
+    pointer-events: auto;
+  }
+  .cp-hotspot::after {
+    display: none;
+  }
+  .cp-hotspot b {
+    font-size: 14px;
+  }
+  .cp-hotspot span {
+    font-size: 11px;
+  }
+
+  /* Panel inferior más bajo: fichas pequeñas en una fila desplazable y botones compactos */
+  .cp-panel {
+    gap: 8px !important;
+    padding: 8px 8px 10px !important;
+  }
+  .cp-roster {
+    padding-top: 8px;
+    scrollbar-width: none;
+  }
+  .cp-roster .cp-soldier {
+    flex: none;
+    width: 150px;
+    min-width: 0;
+    padding: 6px 8px;
+  }
+  .cp-actions {
+    justify-content: center !important;
+    gap: 6px !important;
+  }
+  .cp-actions button {
+    padding: 7px 10px !important;
+    font-size: 14px !important;
+  }
 }

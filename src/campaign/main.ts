@@ -344,14 +344,15 @@ function showCastle() {
   audio.music('castle');
   const s = castleScene('dusk');
 
+  // Los edificios: etiquetas sobre la maqueta en escritorio; en móvil, una fila de botones en el panel.
   ui.innerHTML = `
     ${castleHud()}
-    <div class="cp-hotspots">
-      ${(Object.keys(BUILDINGS) as BuildingId[])
-        .map((b) => `<button class="cp-hotspot" data-b="${b}"><b>${BUILDINGS[b].name}</b>${c.state.buildings[b] ? `<span>nivel ${c.state.buildings[b]}</span>` : ''}</button>`)
-        .join('')}
-    </div>
     <footer class="cp-panel">
+      <div class="cp-hotspots">
+        ${(Object.keys(BUILDINGS) as BuildingId[])
+          .map((b) => `<button class="cp-hotspot" data-b="${b}"><b>${BUILDINGS[b].name}</b>${c.state.buildings[b] ? `<span>nivel ${c.state.buildings[b]}</span>` : ''}</button>`)
+          .join('')}
+      </div>
       <section class="cp-roster">
         ${c.state.soldiers
           .filter((x) => x.alive)

@@ -7,6 +7,9 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 export interface UiHooks {
   onSkill: (skillId: string) => void;
   onRetreat: () => void;
+  /** Tocar la casilla de un combatiente es como pulsarlo en la escena. */
+  onTarget: (id: number) => void;
+  onHover: (id: number | null) => void;
 }
 
 /** Interfaz HTML sobre la escena: iniciativa, panel de habilidades, fichas, rótulos y registro. */
@@ -32,6 +35,11 @@ export class CombatUi {
       <ol class="cb-log" id="cb-log" data-id="log"></ol>
       <div class="cb-bubbles" data-id="bubbles"></div>
       <nav class="cb-command" data-id="command" aria-label="Habilidades"><ol data-id="skills"></ol></nav>
+      <div class="cb-roster" data-id="roster" aria-label="Combatientes">
+        <div class="cb-side party" data-id="r-party"></div>
+        <span class="cb-vs" aria-hidden="true">⚔</span>
+        <div class="cb-side foe" data-id="r-foe"></div>
+      </div>
       <footer class="cb-panel" data-id="panel">
         <section class="cb-card" data-id="actor"></section>
         <section class="cb-skills">
@@ -69,6 +77,45 @@ export class CombatUi {
 
   private q(id: string) {
     return this.root.querySelector(`[data-id="${id}"]`) as HTMLElement;
+  }
+
+  // ───────────────────────── casillas de combatientes ─────────────────────────
+
+  /**
+   * Fila de casillas abajo (en pantallas táctiles o estrechas): el grupo a la
+   * izquierda y los enemigos a la derecha, en el mismo orden que en la escena.
+   * Tocar una casilla es como pulsar al combatiente: elige objetivo.
+   */
+  renderRoster() {
+    const fill = (side: 'party' | 'foe') => {
+      const box = this.q(side === 'party' ? 'r-party' : 'r-foe');
+      const list = this.combat.state.fighters
+        .filter((f) => f.side === side && f.alive)
+        .sort((a, b) => (side === 'party' ? b.rank - a.rank : a.rank - b.rank));
+      box.innerHTML = '';
+      for (const f of list) {
+        const b = document.createElement('button');
+        b.className = `cb-tile ${side} ${f.id === this.combat.state.active ? 'active' : ''}`;
+        b.dataset.fid = String(f.id);
+        b.title = `${f.name} · ${f.hp}/${f.maxHp}`;
+        b.innerHTML = `<img src="${portrait(f.kind, side === 'foe')}" alt=""><i class="bar hp"><i style="width:${Math.max(0, (f.hp / f.maxHp) * 100)}%"></i></i>`;
+        b.addEventListener('click', () => this.hooks.onTarget(f.id));
+        b.addEventListener('pointerenter', () => this.hooks.onHover(f.id));
+        b.addEventListener('pointerleave', () => this.hooks.onHover(null));
+        box.appendChild(b);
+      }
+    };
+    fill('party');
+    fill('foe');
+  }
+
+  /** Marca las casillas que son objetivo válido de la habilidad elegida. */
+  setTargets(ids: number[], mode: 'enemy' | 'ally') {
+    for (const b of this.root.querySelectorAll<HTMLElement>('.cb-tile')) {
+      const on = ids.includes(Number(b.dataset.fid));
+      b.classList.toggle('target-enemy', on && mode === 'enemy');
+      b.classList.toggle('target-ally', on && mode === 'ally');
+    }
   }
 
   setPlayerTurn(on: boolean) {
@@ -194,6 +241,11 @@ export class CombatUi {
   placeCommand(x: number, top: number, feet: number) {
     const menu = this.q('command');
     if (!menu.classList.contains('on')) return;
+    // En pantallas estrechas el menú va fijo abajo (lo coloca el CSS) para no tapar a nadie.
+    if (window.innerWidth <= 640) {
+      menu.style.transform = '';
+      return;
+    }
     const w = menu.offsetWidth;
     const h = menu.offsetHeight;
     const gap = Math.max(26, (feet - top) * 0.32);
