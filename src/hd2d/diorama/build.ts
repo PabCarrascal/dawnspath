@@ -162,7 +162,7 @@ export function buildDiorama(biomeKey: BiomeKey, opts: { seed?: number; scene?: 
     const z = Math.sin(a) * r - 4;
     if (z > 6 && Math.abs(x) < 16) continue;
     const kind = rng.pick(biome.far.kinds);
-    k.tree(x, z, 1.6 + rng.next() * 1.6, kind, rng.pick(biome.far.leaves)).position.y = BOTTOM;
+    k.tree(x, z, 1.6 + rng.next() * 1.6, kind, rng.pick(biome.far.leaves), true).position.y = BOTTOM;
   }
 
   // ── Decorado propio del bioma ──

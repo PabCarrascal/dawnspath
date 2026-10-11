@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Rng } from '../../core/rng';
 import * as px from '../pixel';
 import { SpriteKind, spriteSheet } from '../characters';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { crossQuad, floaters, PixelSprite, swaying } from '../sprite';
 import { BOTTOM, Grid, inClear, W, D, wx, wz } from './grid';
 
@@ -170,50 +171,123 @@ export class Kit {
 
   // ───────────────────────── vegetación ─────────────────────────
 
-  tree(x: number, z: number, s: number, kind: TreeKind, leaf: LeafKey = 'green') {
+  /**
+   * Árbol. Cada uno se une en pocas mallas (tronco, copa, racimos) para que
+   * un bosque entero no cueste cientos de dibujados.
+   * - Frondoso: copa de varias bolas (una grande, un anillo y la cima), más
+   *   oscura por debajo, con racimos de hojas sueltas que rompen la silueta.
+   * - Pino: cinco pisos algo desalineados. Sauce: copa con hebras colgantes.
+   * - Muerto: ramas desnudas. `far`: versión sencilla para el fondo.
+   */
+  tree(x: number, z: number, s: number, kind: TreeKind, leaf: LeafKey = 'green', far = false) {
     const t = new THREE.Group();
-    const bark = this.mat('bark', () => px.bark(this.seed));
-    const trunkH = s * (kind === 'pine' ? 1.2 : kind === 'dead' ? 2.2 : 1.4);
-    const trunk = new THREE.Mesh(this.geo('trunk', () => new THREE.CylinderGeometry(0.12, 0.18, 1, 6)), kind === 'dead' ? this.color(0x3a2e2a) : bark);
-    trunk.scale.set(s, trunkH, s);
-    trunk.position.y = trunkH / 2;
-    t.add(trunk);
     const crown = new THREE.Group();
-    const leafMat = this.mat(`leaf-${leaf}`, () => px.leaves(this.seed + leaf.length * 7, px.LEAF_TONES[leaf]), { flatShading: true, roughness: 0.9 });
-    if (kind === 'pine') {
-      for (let k = 0; k < 3; k++) {
-        const c = new THREE.Mesh(this.geo('cone', () => new THREE.ConeGeometry(1, 1.4, 7)), leafMat);
-        const r = (0.95 - k * 0.22) * s;
-        c.scale.set(r, s * 0.9, r);
-        c.position.y = s * (1.1 + k * 0.62);
-        crown.add(c);
+    const r = () => this.rng.next();
+    const at = (px: number, py: number, pz: number, sx: number, sy = sx, sz = sx, ry = 0, rz = 0, rx = 0) =>
+      new THREE.Matrix4().compose(new THREE.Vector3(px, py, pz), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), new THREE.Vector3(sx, sy, sz));
+    const merge = (geo: THREE.BufferGeometry, ms: THREE.Matrix4[]) => mergeGeometries(ms.map((m) => geo.clone().applyMatrix4(m)))!;
+
+    // ── Tronco: se estrecha hacia arriba, con raíces y, en los frondosos, ramas hacia la copa ──
+    const trunkH = s * (kind === 'pine' ? 1.1 : kind === 'dead' ? 2.2 : kind === 'willow' ? 1.3 : 1.35);
+    const trunkGeo = this.geo('trunk2', () => new THREE.CylinderGeometry(0.6, 1, 1, 6));
+    const wood: THREE.Matrix4[] = [at(0, trunkH / 2, 0, 0.15 * s, trunkH, 0.15 * s)];
+    if (!far) {
+      for (let k = 0; k < 3; k++) wood.push(at(0, 0.06 * s, 0, 0.26 * s, 0.14 * s, 0.26 * s, (k / 3) * Math.PI * 2 + r()));
+      if (kind === 'round' || kind === 'willow') {
+        for (let k = 0; k < 2; k++) {
+          const a = r() * Math.PI * 2;
+          wood.push(at(Math.cos(a) * 0.18 * s, trunkH * 0.85, Math.sin(a) * 0.18 * s, 0.06 * s, 0.55 * s, 0.06 * s, -a, 0.7 * Math.cos(a), 0.7 * Math.sin(a)));
+        }
       }
-    } else if (kind === 'dead') {
-      // Ramas desnudas y retorcidas
+    }
+    const bark = kind === 'dead' ? this.color(0x3a2e2a) : this.mat('bark', () => px.bark(this.seed));
+    t.add(new THREE.Mesh(merge(trunkGeo, wood), bark));
+
+    if (kind === 'dead') {
+      // Ramas desnudas y retorcidas, con ramitas
       const branch = this.color(0x2e2422);
+      const geo = this.geo('branch', () => new THREE.CylinderGeometry(0.03, 0.07, 1, 4));
+      const ms: THREE.Matrix4[] = [];
       for (let k = 0; k < 5; k++) {
-        const b = new THREE.Mesh(this.geo('branch', () => new THREE.CylinderGeometry(0.03, 0.07, 1, 4)), branch);
-        const a = this.rng.next() * Math.PI * 2;
-        const len = s * (0.6 + this.rng.next() * 0.6);
-        b.scale.set(s, len, s);
-        b.position.set(Math.cos(a) * 0.25 * s, trunkH * (0.55 + k * 0.08), Math.sin(a) * 0.25 * s);
-        b.rotation.set(Math.sin(a) * 0.9, 0, -Math.cos(a) * 0.9);
-        crown.add(b);
+        const a = r() * Math.PI * 2;
+        const len = s * (0.6 + r() * 0.6);
+        const y = trunkH * (0.55 + k * 0.08);
+        ms.push(at(Math.cos(a) * 0.25 * s, y, Math.sin(a) * 0.25 * s, s, len, s, 0, -Math.cos(a) * 0.9, Math.sin(a) * 0.9));
+        if (!far) ms.push(at(Math.cos(a) * 0.55 * s, y + len * 0.35, Math.sin(a) * 0.55 * s, 0.6 * s, len * 0.5, 0.6 * s, 0, -Math.cos(a + 0.8) * 1.2, Math.sin(a + 0.8) * 1.2));
       }
+      crown.add(new THREE.Mesh(merge(geo, ms), branch));
     } else {
-      const n = 3 + this.rng.int(0, 2);
-      for (let k = 0; k < n; k++) {
-        const b = new THREE.Mesh(this.geo('blob', () => new THREE.IcosahedronGeometry(1, 1)), leafMat);
-        const r = s * (0.55 + this.rng.next() * 0.3);
-        const droop = kind === 'willow' ? 1.35 : 0.85;
-        b.scale.set(r, r * droop, r);
-        b.position.set((this.rng.next() - 0.5) * s * 0.9, s * (kind === 'willow' ? 1.3 : 1.5 + this.rng.next() * 0.6), (this.rng.next() - 0.5) * s * 0.9);
-        crown.add(b);
+      const tones = px.LEAF_TONES[leaf];
+      const leafMat = this.mat(`leaf2-${leaf}`, () => px.leaves(this.seed + leaf.length * 7, tones), { flatShading: true, roughness: 0.9, vertexColors: true });
+      if (kind === 'pine') {
+        // Cinco pisos que se estrechan, cada uno algo girado y desplazado
+        const ms: THREE.Matrix4[] = [];
+        const tiers = far ? 3 : 5;
+        for (let k = 0; k < tiers; k++) {
+          const f = k / (tiers - 1);
+          const rad = (1.0 - f * 0.72) * s * 0.85;
+          ms.push(at((r() - 0.5) * 0.06 * s, trunkH * 0.55 + f * s * 1.7, (r() - 0.5) * 0.06 * s, rad, s * (0.75 - f * 0.15), rad, r() * Math.PI, (r() - 0.5) * 0.08));
+        }
+        crown.add(new THREE.Mesh(merge(this.shadedGeo('cone', () => new THREE.ConeGeometry(1, 1.2, 8)), ms), leafMat));
+      } else {
+        // Copa de bolas: la grande, un anillo alrededor y la cima
+        const top = trunkH + s * (kind === 'willow' ? 0.15 : 0.35);
+        const droop = kind === 'willow' ? 1.2 : 0.85;
+        const ms: THREE.Matrix4[] = [at(0, top + 0.25 * s, 0, 0.72 * s, 0.72 * s * droop, 0.72 * s)];
+        const ring = far ? 2 : 4 + this.rng.int(0, 1);
+        const spots: THREE.Vector3[] = [];
+        for (let k = 0; k < ring; k++) {
+          const a = (k / ring) * Math.PI * 2 + r() * 0.6;
+          const rr = (0.42 + r() * 0.2) * s;
+          const p = new THREE.Vector3(Math.cos(a) * rr * 0.9, top + (r() - 0.3) * 0.3 * s, Math.sin(a) * rr * 0.9);
+          spots.push(p);
+          const sc = (0.42 + r() * 0.16) * s;
+          ms.push(at(p.x, p.y, p.z, sc, sc * droop, sc));
+        }
+        if (!far && kind === 'round') ms.push(at((r() - 0.5) * 0.3 * s, top + 0.85 * s, (r() - 0.5) * 0.3 * s, 0.42 * s, 0.38 * s, 0.42 * s));
+        crown.add(new THREE.Mesh(merge(this.shadedGeo('blob', () => new THREE.IcosahedronGeometry(1, 1)), ms), leafMat));
+
+        if (!far) {
+          // Racimos sueltos en el borde de la copa, que rompen la silueta redonda
+          const cards: THREE.Matrix4[] = [];
+          for (let k = 0; k < 9; k++) {
+            const a = r() * Math.PI * 2;
+            const y = top + (r() - 0.25) * 0.9 * s;
+            const rr = 0.78 * s * (1 - Math.max(0, y - top - 0.4 * s) / (1.2 * s));
+            cards.push(at(Math.cos(a) * rr, y, Math.sin(a) * rr, 0.62 * s, 0.62 * s, 0.62 * s, a));
+          }
+          const cardMat = this.mat(`leafcard-${leaf}`, () => px.leafCard(this.seed + 21 + leaf.length, tones), { side: THREE.DoubleSide, alphaTest: 0.5, roughness: 0.9 });
+          crown.add(new THREE.Mesh(merge(this.geo('leafquad', () => crossQuad(1).translate(0, -0.5, 0)), cards), cardMat));
+          if (kind === 'willow') {
+            // Hebras de hojas que cuelgan hasta media altura del tronco
+            const fronds: THREE.Matrix4[] = spots.concat([new THREE.Vector3(0, top, 0)]).map((p) => at(p.x * 1.25, p.y, p.z * 1.25, 0.55 * s, (0.9 + r() * 0.5) * s, 0.55 * s, r() * Math.PI));
+            const frondMat = this.mat(`frond-${leaf}`, () => px.moss(this.seed + 41), { side: THREE.DoubleSide, alphaTest: 0.5, color: tones[3] });
+            crown.add(new THREE.Mesh(merge(this.geo('mossquad', () => crossQuad(1).translate(0, -1, 0)), fronds), frondMat));
+          }
+        }
       }
     }
     t.add(crown);
-    this.crowns.push({ obj: crown, phase: this.rng.next() * 10 });
-    return this.add(t, x, z, this.y(x, z), this.rng.next() * Math.PI * 2);
+    this.crowns.push({ obj: crown, phase: r() * 10 });
+    return this.add(t, x, z, this.y(x, z), r() * Math.PI * 2);
+  }
+
+  /** Geometría con color por vértice: más oscura abajo y más clara arriba (volumen sin luz extra). */
+  private shadedGeo(key: string, make: () => THREE.BufferGeometry) {
+    return this.geo(`shaded-${key}`, () => {
+      const g = make();
+      g.computeBoundingBox();
+      const { min, max } = g.boundingBox!;
+      const pos = g.attributes.position;
+      const col = new Float32Array(pos.count * 3);
+      for (let i = 0; i < pos.count; i++) {
+        const f = (pos.getY(i) - min.y) / (max.y - min.y || 1);
+        const v = 0.55 + 0.5 * f;
+        col.set([v, v, v], i * 3);
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      return g;
+    });
   }
 
   /** Hierba, flores, helechos o juncos instanciados, en las celdas que cumplan el filtro. */

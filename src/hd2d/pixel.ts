@@ -234,6 +234,30 @@ export function leaves(seed: number, tones: number[]) {
   return p;
 }
 
+/**
+ * Racimo de hojas con transparencia, para el borde de las copas: rompe la
+ * silueta redonda con hojas sueltas. Luz arriba a la izquierda.
+ */
+export function leafCard(seed: number, tones: number[]) {
+  const rng = new Rng(seed);
+  const p = new Px(16, 16);
+  for (let i = 0; i < 11; i++) {
+    const a = rng.next() * Math.PI * 2;
+    const d = rng.next() * 5;
+    const cx = Math.round(8 + Math.cos(a) * d);
+    const cy = Math.round(8 + Math.sin(a) * d);
+    const r = rng.int(2, 3);
+    for (let y = -r; y <= r; y++) {
+      for (let x = -r; x <= r; x++) {
+        if (x * x + y * y > r * r) continue;
+        const lit = x + y < -r * 0.5;
+        p.set(cx + x, cy + y, lit ? tones[3] : x + y > r * 0.6 ? tones[1] : tones[2]);
+      }
+    }
+  }
+  return p;
+}
+
 export const LEAF_TONES = {
   green: [0x24501e, 0x2f6a26, 0x3e8a32, 0x62ae44],
   pine: [0x183a22, 0x1f4a2a, 0x2a6034, 0x3e7a40],
