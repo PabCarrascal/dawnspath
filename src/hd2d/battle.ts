@@ -2,7 +2,7 @@ import './battle.css';
 import * as THREE from 'three';
 import type { Combat } from '../combat/rules/Combat';
 import type { CombatEvent, Fighter, StatusKind } from '../combat/rules/types';
-import type { BattleView, ViewHooks } from '../combat/session';
+import type { BattleView, Box, ViewHooks } from '../combat/session';
 import { anim, ease, lerp } from '../core/anim';
 import { Rng } from '../core/rng';
 import { SpriteKind, spriteSheet } from './characters';
@@ -269,6 +269,9 @@ export class Hd2dCombatView implements BattleView {
       ringMat.opacity = 0.9;
     } else ringMat.opacity = 0;
     (u.ring.children[0] as THREE.Mesh).visible = !u.dead;
+    // Reborde en la silueta de los objetivos posibles: late como el aro y se enciende del todo bajo el cursor.
+    if (u.dead || u.target === 'none') u.sprite.setOutline(null);
+    else u.sprite.setOutline(u.target === 'enemy' ? 0xff5a3a : 0x7ff09a, this.hovered === u.f.id ? 1.6 : 0.7 + 0.5 * pulse);
 
     // Ficha HTML bajo los pies y marcador sobre la cabeza
     const feet = this.project(m.position.x, 0, m.position.z);
@@ -329,6 +332,21 @@ export class Hd2dCombatView implements BattleView {
     if (!u) return { x: 0, y: 0 };
     const m = u.sprite.mesh;
     return this.project(m.position.x, m.position.y + u.sprite.height + 0.25, m.position.z);
+  }
+
+  boxes() {
+    const out: Box[] = [];
+    for (const u of this.units.values()) {
+      if (u.dead) continue;
+      const m = u.sprite.mesh;
+      const feet = this.project(m.position.x, 0, m.position.z);
+      const head = this.project(m.position.x, m.position.y + u.sprite.height, m.position.z);
+      // El cuadro trae margen transparente a los lados: el cuerpo ocupa algo menos.
+      const half = (((feet.y - head.y) * u.sprite.width) / u.sprite.height) * 0.4;
+      // Hasta la ficha de vida y estrés, bajo los pies.
+      out.push({ x0: feet.x - half, y0: head.y, x1: feet.x + half, y1: feet.y + 34 });
+    }
+    return out;
   }
 
   feetOf(id: number) {

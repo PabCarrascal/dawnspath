@@ -22,9 +22,10 @@ export const BAL = {
   initiativeRoll: 6,
   /**
    * Puntería extra de los ataques de cada bando. Sin ella el grupo fallaba uno de
-   * cada cinco golpes; los enemigos reciben algo menos para no abaratar la campaña.
+   * cada cinco golpes; los enemigos reciben algo más porque, al alternar
+   * habilidades, ya no amontonan tanto estrés (así la campaña sigue igual de dura).
    */
-  hitBonus: { party: 0.08, foe: 0.02 } as Record<Side, number>,
+  hitBonus: { party: 0.08, foe: 0.1 } as Record<Side, number>,
 };
 
 /** Opción de acción: una habilidad sobre un objetivo concreto. */
@@ -41,6 +42,8 @@ export class Combat {
   readonly state: CombatState;
   readonly encounter: Encounter;
   private rng: Rng;
+  /** Última habilidad de cada combatiente: la IA enemiga evita repetirla turno tras turno. */
+  private lastSkill = new Map<number, string>();
 
   constructor(encounter: Encounter | string, seed: number) {
     this.encounter = typeof encounter === 'string' ? ENCOUNTERS.find((e) => e.id === encounter)! : encounter;
@@ -292,6 +295,7 @@ export class Combat {
     } else targets = [chosen];
 
     events.push({ type: 'skill', actor: actor.id, skill: skillId, targets: targets.map((t) => t.id) });
+    this.lastSkill.set(actor.id, skillId);
 
     if (skillId === MOVE_SKILL) {
       this.swap(actor, chosen, events);
@@ -551,7 +555,8 @@ export class Combat {
       s += hit * avg * n;
       if (avg >= t.hp) s += 8;
       if (t.deathsDoor) s += f.side === 'foe' ? 3 : 10;
-      if (skill.stress) s += (skill.stress / 3) * (t.stress < 100 ? 1 : 0.5) * n;
+      // El estrés, como el daño, solo llega si el golpe acierta.
+      if (skill.stress) s += hit * (skill.stress / 4) * (t.stress < 100 ? 1 : 0.5) * n;
       if (skill.stun && !this.has(t, 'stun')) s += 4 * skill.stun;
       if (skill.mark && !this.has(t, 'mark')) s += 3;
       if (skill.bleed && !this.has(t, 'bleed')) s += skill.bleed.amount * skill.bleed.turns * 0.6;
@@ -570,6 +575,8 @@ export class Combat {
       if (skill.guard) s += this.has(t, 'guarded') ? -5 : t.deathsDoor ? 16 : t.hp < t.maxHp * 0.5 ? 6 : -5;
       if (skill.steady) s += this.has(f, 'steady') ? -5 : 1;
     }
+    // Los enemigos alternan: repetir la habilidad del turno anterior puntúa menos.
+    if (f.side === 'foe' && this.lastSkill.get(f.id) === o.skill) s -= 4;
     return s;
   }
 }

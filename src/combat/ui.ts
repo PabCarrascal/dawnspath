@@ -1,6 +1,10 @@
 import { portrait } from '../hd2d/portrait';
 import type { Combat } from './rules/Combat';
 import type { Fighter, Skill } from './rules/types';
+import type { Box } from './session';
+
+/** Área en común de dos rectángulos. */
+const overlap = (a: Box, b: Box) => Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0));
 
 const pct = (x: number) => `${Math.round(x * 100)}%`;
 
@@ -17,6 +21,10 @@ export class CombatUi {
   private root: HTMLElement;
   private bubbles: HTMLElement;
   private bannerTimer: number | null = null;
+  /** Sitio elegido para el menú en el último fotograma (índice de los que prueba placeCommand). */
+  private commandSpot = -1;
+  /** Tamaño del menú en una y en dos columnas; se mide al cambiar sus habilidades. */
+  private commandSize: { tall: [number, number]; cols: [number, number] } | null = null;
 
   constructor(
     root: HTMLElement,
@@ -203,6 +211,7 @@ export class CombatUi {
     const list = this.q('skills');
     const menu = this.q('command');
     list.innerHTML = '';
+    this.commandSize = null;
     menu.classList.toggle('on', !!actor);
     if (!actor) {
       this.q('skill-info').innerHTML = '';
@@ -234,11 +243,13 @@ export class CombatUi {
   }
 
   /**
-   * Coloca el menú a un lado del personaje (`x` es su centro, `top` y `feet`
-   * la cabeza y los pies en pantalla): a la izquierda si cabe, si no a la
-   * derecha, y nunca tapando las fichas de los pies.
+   * Coloca el menú cerca del personaje (`x` es su centro, `top` y `feet` la
+   * cabeza y los pies en pantalla) sin tapar a nadie: prueba a cada lado, bajo
+   * las fichas y sobre la cabeza, y se queda con el sitio que menos tapa a los
+   * combatientes (`avoid`); a igualdad, el más cercano. Nunca baja del panel
+   * inferior. Bajo las fichas va en dos columnas: más bajo, cabe en la hierba.
    */
-  placeCommand(x: number, top: number, feet: number) {
+  placeCommand(x: number, top: number, feet: number, avoid: Box[] = []) {
     const menu = this.q('command');
     if (!menu.classList.contains('on')) return;
     // En pantallas estrechas el menú va fijo abajo (lo coloca el CSS) para no tapar a nadie.
@@ -246,13 +257,49 @@ export class CombatUi {
       menu.style.transform = '';
       return;
     }
-    const w = menu.offsetWidth;
-    const h = menu.offsetHeight;
+    if (!this.commandSize) {
+      const size = (): [number, number] => [menu.offsetWidth, menu.offsetHeight];
+      const had = menu.classList.contains('cols');
+      menu.classList.remove('cols');
+      const tall = size();
+      menu.classList.add('cols');
+      this.commandSize = { tall, cols: size() };
+      menu.classList.toggle('cols', had);
+    }
+    const [w, h] = this.commandSize.tall;
+    const [cw, ch] = this.commandSize.cols;
     const gap = Math.max(26, (feet - top) * 0.32);
-    const left = x - gap - w >= 8 ? x - gap - w : Math.min(window.innerWidth - w - 8, x + gap);
-    const y = Math.max(64, Math.min(feet - h - 4, (top + feet) / 2 - h / 2));
-    menu.classList.toggle('right', left > x);
-    menu.style.transform = `translate(${Math.round(left)}px, ${Math.round(y)}px)`;
+    const mid = (top + feet) / 2 - h / 2;
+    const spots: [number, number, 'left' | 'right' | 'free' | 'cols'][] = [
+      [x - gap - w, mid, 'left'],
+      [x + gap, mid, 'right'],
+      [x - cw / 2, feet + 40, 'cols'],
+      [x - gap - w, top - h - 12, 'free'],
+      [x + gap, top - h - 12, 'free'],
+      [x - w / 2, top - h - 12, 'free'],
+    ];
+    const floor = Math.min(
+      window.innerHeight,
+      ...['panel', 'roster'].map((id) => this.q(id).getBoundingClientRect()).filter((r) => r.height > 0).map((r) => r.top),
+    );
+    const scores = spots.map(([sx, sy, kind], i) => {
+      const [sw, sh] = kind === 'cols' ? [cw, ch] : [w, h];
+      const l = Math.max(8, Math.min(window.innerWidth - sw - 8, sx));
+      const t = Math.max(64, Math.min(floor - sh - 8, sy));
+      const r = { x0: l, y0: t, x1: l + sw, y1: t + sh };
+      let s = i * 40 + Math.hypot(l + sw / 2 - x, t + sh / 2 - (top + feet) / 2) * 0.05;
+      for (const b of avoid) s += overlap(r, b);
+      return { l, t, s, side: spots[i][2] };
+    });
+    // Se mantiene el sitio anterior mientras siga casi tan bien: así no salta con la deriva de la cámara.
+    let best = scores.reduce((a, b) => (b.s < a.s ? b : a));
+    const prev = scores[this.commandSpot];
+    if (prev && prev.s <= best.s + 400) best = prev;
+    this.commandSpot = scores.indexOf(best);
+    menu.classList.toggle('right', best.side === 'right');
+    menu.classList.toggle('free', best.side === 'free' || best.side === 'cols');
+    menu.classList.toggle('cols', best.side === 'cols');
+    menu.style.transform = `translate(${Math.round(best.l)}px, ${Math.round(best.t)}px)`;
   }
 
   /** Descripción y el diagrama de posiciones: desde dónde se usa y a quién alcanza. */

@@ -9,6 +9,14 @@ import { CombatView, ViewHooks } from './view/CombatView';
 
 export type { ViewHooks };
 
+/** Rectángulo en pantalla, en píxeles. */
+export interface Box {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 /** Lo que el bucle de combate necesita de una vista (2D en PixiJS o maqueta HD-2D). */
 export interface BattleView {
   play(events: CombatEvent[], ui: Parameters<CombatView['play']>[1]): Promise<void>;
@@ -16,6 +24,8 @@ export interface BattleView {
   headOf(id: number): { x: number; y: number };
   /** Pies del combatiente en pantalla (para colocar el menú a su lado). */
   feetOf?(id: number): { x: number; y: number };
+  /** Lo que ocupa en pantalla cada combatiente vivo (para que el menú no lo tape). */
+  boxes?(): Box[];
   destroy(): void;
 }
 
@@ -103,7 +113,7 @@ export async function startCombat(o: SessionOptions): Promise<CombatSession> {
     if (actor && !busy) {
       const head = view.headOf(actor.id);
       const feet = view.feetOf?.(actor.id) ?? { x: head.x, y: head.y + 150 };
-      ui.placeCommand(feet.x, head.y, feet.y);
+      ui.placeCommand(feet.x, head.y, feet.y, view.boxes?.() ?? []);
     }
     follow = requestAnimationFrame(track);
   };

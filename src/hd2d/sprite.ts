@@ -26,14 +26,17 @@ export const spriteGlow = () => glow;
 /** Personaje en pixel art: un plano que siempre mira a la cámara y alterna cuadros. */
 export class PixelSprite {
   readonly mesh: THREE.Mesh;
-  /** Alto del sprite en unidades del mundo. */
+  /** Alto y ancho del sprite en unidades del mundo. */
   readonly height: number;
+  readonly width: number;
   /** Mira a la izquierda (enemigos): la textura se invierte en horizontal. */
   flipped: boolean;
   private tex: THREE.Texture;
   private t = Math.random() * 2;
   private frame = 0;
   private pose: Pose = 'idle';
+  /** Reborde de un píxel alrededor de la silueta (objetivo seleccionable); intensidad 0 = apagado. */
+  private outline = { color: { value: new THREE.Color() }, strength: { value: 0 }, texel: { value: new THREE.Vector2() } };
 
   constructor(sheet: THREE.Texture, scale: number, private fps = 1.6, flipped = false) {
     this.flipped = flipped;
@@ -45,15 +48,46 @@ export class PixelSprite {
     const w = (img.width / FRAMES / SPRITE_PPU) * scale;
     const h = (img.height / SPRITE_PPU) * scale;
     this.height = h;
+    this.width = w;
     const geo = new THREE.PlaneGeometry(w, h);
     geo.translate(0, h / 2 - (1 / SPRITE_PPU) * scale, 0);
     // Algo de luz propia: en HD-2D los personajes se leen bien aunque estén a contraluz.
     const mat = new THREE.MeshStandardMaterial({ map: this.tex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 1, emissive: 0xffffff, emissiveMap: this.tex, emissiveIntensity: glow });
     glowing.add(mat);
     mat.addEventListener('dispose', () => glowing.delete(mat));
+    this.outline.texel.value.set(1 / img.width, 1 / img.height);
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uOutlineColor = this.outline.color;
+      shader.uniforms.uOutline = this.outline.strength;
+      shader.uniforms.uTexel = this.outline.texel;
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform vec3 uOutlineColor;\nuniform float uOutline;\nuniform vec2 uTexel;')
+        .replace(
+          '#include <map_fragment>',
+          `#include <map_fragment>
+          // Píxel vacío junto a la silueta: se pinta del color del reborde.
+          bool outlined = false;
+          if (uOutline > 0.0 && diffuseColor.a < 0.5) {
+            float near = texture2D(map, vMapUv + vec2(uTexel.x, 0.0)).a + texture2D(map, vMapUv - vec2(uTexel.x, 0.0)).a
+              + texture2D(map, vMapUv + vec2(0.0, uTexel.y)).a + texture2D(map, vMapUv - vec2(0.0, uTexel.y)).a;
+            if (near > 0.5) {
+              outlined = true;
+              diffuseColor = vec4(uOutlineColor, 1.0);
+            }
+          }`,
+        )
+        // Sin luces ni sombras: el reborde se ve igual de noche que de día.
+        .replace('#include <dithering_fragment>', '#include <dithering_fragment>\n  if (outlined) gl_FragColor = vec4(uOutlineColor * uOutline, 1.0);');
+    };
     this.mesh = new THREE.Mesh(geo, mat);
     this.mesh.castShadow = true;
     this.mesh.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, map: this.tex, alphaTest: 0.5 });
+  }
+
+  /** Enciende el reborde con un color y una intensidad (0–1), o lo apaga con `null`. */
+  setOutline(color: number | null, strength = 1) {
+    this.outline.strength.value = color === null ? 0 : strength;
+    if (color !== null) this.outline.color.value.set(color);
   }
 
   /** Gira el sprite hacia la izquierda o la derecha. */

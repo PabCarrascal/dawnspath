@@ -635,6 +635,21 @@ em.affl,
   border-left: 0;
   border-right: 7px solid var(--panel-edge);
 }
+/* Encima o debajo del personaje, el pico ya no señala a nadie */
+.cb-command.free::after {
+  display: none;
+}
+/* Bajo las fichas, en dos columnas: más bajo, para caber entre los combatientes y el panel */
+.cb-command.cols ol {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px 6px;
+}
+.cb-command.cols li:last-child {
+  grid-column: 1 / -1;
+  margin-top: 2px;
+  padding-top: 3px;
+}
 .cb-command ol {
   display: flex;
   flex-direction: column;
