@@ -189,12 +189,21 @@ class Rig:
             self.ramps[c] = ramp
         return self.mats[c]
 
-    def pose(self, turns, lift=None):
-        """Gira cada pivote los grados indicados y desplaza en vertical los de `lift`."""
+    def pose(self, turns, lift=None, hide=()):
+        """
+        Gira cada pivote los grados indicados, desplaza en vertical los de `lift` y
+        oculta los de `hide` con todo lo que cuelga de ellos (piezas de un solo cuadro).
+        """
         lift = lift or {}
         for name, o in self.pivots.items():
             o.rotation_euler = (0, radians(turns.get(name, 0)), 0)
             o.location = self.rest[name] + Vector((0, 0, lift.get(name, 0)))
+        hidden = {self.pivots[name] for name in hide}
+        for o in bpy.context.scene.objects:
+            p = o
+            while p and p not in hidden:
+                p = p.parent
+            o.hide_render = p is not None
         bpy.context.view_layer.update()
 
 

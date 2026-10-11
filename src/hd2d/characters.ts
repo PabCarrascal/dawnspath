@@ -725,6 +725,11 @@ export const BLENDER_SPRITES: Partial<Record<SpriteKind, string>> = {
   spearman: 'spearman',
   archer: 'archer',
   chaplain: 'chaplain',
+  shade: 'shade',
+  brute: 'brute',
+  stalker: 'stalker',
+  herald: 'herald',
+  mimic: 'mimic',
 };
 
 /** Carga las hojas de Blender (public/sprites/) y las usa en lugar de las dibujadas. */

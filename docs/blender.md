@@ -1,131 +1,87 @@
-# Arte con Blender MCP
+# Sprites con Blender
 
-Cómo conectar Blender a Claude Code y cómo convertir sus renders en los fondos y sprites de El Sendero del Alba.
+Cómo se hacen en Blender los sprites de los personajes de El Sendero del Alba y cómo los usa el juego.
 
-Hoy cada escena se pinta por código en Canvas2D (`src/combat/view/backdrop.ts` y `src/campaign/view/props.ts`). La idea es sustituir esas capas por renders de Blender hechos con assets de Poly Haven a 2k, sin tocar el motor 2D.
+El estilo es HD-2D: personajes en pixel art dentro de maquetas 3D. Hasta ahora cada sprite se dibujaba por código en `src/hd2d/characters.ts`. Con Blender, cada personaje es un modelo 3D sencillo, hecho con primitivas, que se renderiza como una hoja de pixel art con el mismo formato, la misma paleta y el mismo acabado. El juego puede usar una u otra versión.
 
-## 1. Instalación
+- **Dónde está todo:** `tools/blender/`.
+- **Dónde se renderiza:** Blender está instalado solo en rdtserver, con snap. `npm run assets` sube `tools/blender/` a una carpeta temporal del servidor, lanza allí `blender -b` (sin interfaz) por cada modelo y se trae los PNG. Cómo se accede por SSH: [rdtserver.md](rdtserver.md).
 
-Requisitos: macOS con Homebrew y `uv` (`brew install uv`; en este equipo ya está).
+## Uso rápido
 
-1. **Blender.** Instálalo con:
+```bash
+npm run assets               # renderiza los modelos que han cambiado
+npm run assets -- --todo     # todos
+npm run assets -- hero       # solo estos
+```
 
-   ```bash
-   brew install --cask blender
-   ```
+Los PNG quedan en `public/sprites/<modelo>.png`. Para verlos en el juego, añade `?sprites=blender` al banco de combate:
 
-   También vale la descarga de [blender.org](https://www.blender.org/download/). Usa la versión 3.6 o posterior.
+```
+http://localhost:5173/combat.html?enc=ambush&seed=123&sprites=blender
+```
 
-2. **Complemento de Blender MCP.**
-   1. Descarga `addon.py` del repositorio [ahujasid/blender-mcp](https://github.com/ahujasid/blender-mcp).
-   2. En Blender, ve a *Edit → Preferences → Add-ons → Install…*, elige `addon.py` y activa **Interface: Blender MCP**.
+Sin ese parámetro, el juego usa los sprites dibujados por código. Qué personaje usa qué modelo se decide en `BLENDER_SPRITES`, en `src/hd2d/characters.ts`.
 
-3. **Conectar desde Blender.**
-   1. En la vista 3D, pulsa `N` para abrir el panel lateral y entra en la pestaña **BlenderMCP**.
-   2. Activa **Use assets from Poly Haven**.
-   3. Pulsa **Connect to MCP server**. Blender queda escuchando en el puerto 9876.
+## Archivos
 
-4. **Registrar el servidor en Claude Code**, desde la carpeta del proyecto:
-
-   ```bash
-   claude mcp add blender -- uvx blender-mcp
-   ```
-
-   La primera vez, `uvx` descarga el paquete `blender-mcp`.
-
-5. **Sesión nueva.** Empieza una sesión nueva de Claude Code o reinicia la actual para que carguen las herramientas de Blender.
-
-**Comprobación:** con Blender abierto y conectado, pide a Claude "lista los objetos de la escena de Blender". Si responde con la escena por defecto (cubo, cámara y luz), todo funciona.
-
-**Si no conecta:**
-
-| Síntoma | Causa probable |
+| Archivo | Qué es |
 | --- | --- |
-| Claude no ve herramientas de Blender | La sesión se abrió antes de `claude mcp add`; abre una nueva. |
-| "Could not connect to Blender" | En Blender no se pulsó **Connect**, o se cerró Blender. |
-| Poly Haven no devuelve nada | La casilla de Poly Haven no está activada en el panel. |
-| Puerto ocupado | Otra instancia de Blender ya usa el 9876; cierra las demás. |
+| `tools/blender/run.sh` | Lo que ejecuta `npm run assets`: sube, renderiza en el servidor y trae los PNG. |
+| `tools/blender/build.py` | Entrada de Blender: carga un modelo y genera su hoja. |
+| `tools/blender/pixelart.py` | La tubería común: piezas, poses, render y acabado. |
+| `tools/blender/palette.py` | La paleta `C` de `characters.ts`, en rampas de tres tonos. Si cambia una, hay que cambiar la otra. |
+| `tools/blender/sprites/<modelo>.py` | Un archivo por personaje. |
 
-## 2. Estilo
+## Cómo se renderiza una hoja
 
-La referencia es Darkest Dungeon: trazo de tinta, sombras duras, paleta corta y desaturada, y la luz como única fuente de color. Un render 3D realista no encaja; hay que llevarlo hacia la ilustración.
+Cada hoja tiene 4 cuadros en fila, como las dibujadas: reposo, reposo un píxel más bajo, golpe y dolor. Va a doble resolución y con los pies en la última fila.
 
-- **Contorno:** Freestyle activado (*Render Properties → Freestyle*), línea de 2–3 px, color casi negro `#0b0907`.
-- **Sombreado:** plano. Usa *Shader to RGB* con una *Color Ramp* de 2–3 pasos, o el motor Workbench con iluminación *Flat* para las capas lejanas.
-- **Texturas Poly Haven a 2k**, desaturadas entre un 40 % y un 60 % en el material.
-- **Luz:** una principal (sol, luna o antorcha) más un relleno muy bajo. Nada de iluminación global brillante.
-- **Hora del día:** por código. Cada fondo se renderiza una sola vez con luz neutra, y el juego lo colorea y oscurece según la hora (día, atardecer, noche). Así un bioma necesita un juego de capas en lugar de cuatro.
+1. **Pose.** El modelo coloca sus piezas para el cuadro.
+2. **Dos renders** con la misma cámara ortográfica, algo elevada y con el modelo girado hacia ella (vista de 3/4):
+   - Workbench plano y sin suavizado: el color base de cada píxel y la silueta.
+   - Cycles con todo en blanco y un sol desde la cámara, arriba a la izquierda: cuánta luz le llega a cada píxel.
+3. **Tonos.** La luz se reduce a los tres tonos de la rampa de cada material (luz, base y sombra), como en la paleta del juego. Se limpian las motas sueltas.
+4. **Detalles a mano**, como en `DETAIL` de `characters.ts`:
+   - Tramas (cota de malla).
+   - Ojos: el ojo dibujado del juego, estampado donde cae la pieza del ojo.
+5. **Acabado**, copia de `finish()` y `selOut()`:
+   - Borde de luz arriba a la izquierda y de sombra abajo a la derecha.
+   - Trama en las telas.
+   - Contorno que toma el color del vecino.
+6. **Luces.** Las rayas del halo de un farol o una gema se pintan al final, sin contorno.
 
-## 3. Qué hay que producir
+## Hacer un personaje nuevo
 
-### Fondos de bioma
+Copia uno parecido de `sprites/` (`hero.py` es la referencia) y cambia las piezas. Lo que define un modelo:
 
-Cada bioma se renderiza en capas separadas, todas en PNG con transparencia (RGBA) salvo el cielo:
+| Nombre | Qué es |
+| --- | --- |
+| `SIZE` | Tamaño del cuadro en la rejilla base, como `SPRITE_SIZE`. El alto debe coincidir con el dibujado. El ancho puede crecer si el ataque necesita sitio. |
+| `VIEW` | Alto visible en unidades de Blender: `SIZE[1] / 20`, para que todos tengan la misma escala. |
+| `TURN` | Grados que el modelo se gira hacia la cámara; por defecto, 35. |
+| `build(rig)` | Crea los pivotes y las piezas. |
+| `pose(rig, f)` | Coloca el cuadro `f` (de 0 a 3), normalmente con `rig.pose(giros, alturas, ocultos)`: grados por pivote, desplazamiento vertical por pivote y pivotes que no salen en ese cuadro. |
 
-| Capa | Archivo | Tamaño | Contenido |
-| --- | --- | --- | --- |
-| Cielo | `sky.png` | 1480 × 1420 | Degradado y nubes, sin sol ni luna (los pone el código). Opaco. |
-| Lejana | `far.png` | 1480 × 720 | Montañas o línea de bosque lejana. |
-| Media | `mid.png` | 1480 × 720 | Árboles, ruinas o estructuras de fondo; su base, en y = 582. |
-| Suelo | `ground.png` | 1480 × 720 | El camino, desde y = 560 hacia abajo. |
-| Primer plano | `front.png` | 1480 × 720 | Hierbas y ramas que enmarcan los bordes; el centro, libre. |
+**Piezas.** Se añaden con `rig.part(tipo, pivote, posición, tamaño, color, rot=…, mark=…)`:
 
-Cada capa se renderiza al doble de tamaño (2960 × 1440, o 2960 × 2840 para el cielo) y el juego la escala; así se ve nítida en pantallas retina.
+- **Tipos:** `box`, `ball`, `tube`, `cone`, `wedge`, `frustum` (cilindro que se estrecha) y `pleats` (capa con pliegues).
+- **Color:** una rampa de `palette.py`.
+- **Marcas:** `"mail"` (cota de malla), `"eye"` (ojo dibujado) y `"glow"` (halo de luz).
 
-- **Biomas:** `meadow`, `forest`, `ruins`, `ford`, `lair` y `castle`. Prioridad: `forest`, que es el del corte vertical.
-- **Referencias de la escena lógica** (de 1280 × 720, ampliada a 1480 de ancho para el paralaje): el suelo de los personajes está en y = 568, y el grupo ocupa x = 134–560 y los enemigos x = 720–1146 (más 100 px de margen en las capas).
-- **Cámara:** ortográfica, mirando de lado. Una cámara por capa, o una sola cámara ocultando colecciones entre renders.
+**Poses.** El personaje mira hacia +X. Un giro positivo de un pivote lo inclina hacia delante.
 
-### Estructuras y edificios
+Para que el juego use el nuevo modelo, añádelo a `BLENDER_SPRITES` en `src/hd2d/characters.ts`.
 
-Cada pieza es un PNG RGBA con el origen en el centro de la base:
+## Estado
 
-| Pieza | Archivo | Tamaño aproximado |
-| --- | --- | --- |
-| Herrería | `smithy.png` | 260 × 300 |
-| Taberna | `tavern.png` | 300 × 340 |
-| Logia de constructores | `lodge.png` | 320 × 320 |
-| Murallas y torres del castillo | `castle-back.png` | 1480 × 720 (capa) |
-| Campamento (tienda y hoguera) | `camp.png` | 220 × 160 |
-| Torre de vigía | `tower.png` | 180 × 420 |
-| Cofre de botín | `chest.png` | 80 × 60 |
+| Personaje | Modelo |
+| --- | --- |
+| Héroe, lancero, arquera, capellana | Hechos y conectados al juego |
+| Sombra, bruto, acechador, heraldo, mímico | Hechos y conectados al juego (el heraldo y el mímico no salen en el banco de combate) |
+| Aldeano, herrero, gallina (solo en las maquetas) | Sin empezar |
 
-Los edificios pueden llevar variantes por nivel (`smithy-1.png` … `smithy-3.png`); si no las hay, el código añade estandartes por nivel como ahora.
+Pendiente:
 
-### Personajes
-
-Los personajes, para más adelante. Animar renders 3D cuadro a cuadro no encaja con el movimiento por código (respiración, embestida, retroceso). Si se hacen en Blender, serán 2 o 3 poses por unidad en PNG RGBA de 512 × 512, con el origen en los pies.
-
-## 4. Dónde van en el proyecto
-
-```
-public/art/
-  biomes/<bioma>/sky.png, far.png, mid.png, ground.png, front.png
-  props/smithy.png, tavern.png, lodge.png, castle-back.png, camp.png, tower.png, chest.png
-art-src/
-  <bioma>.blend           # escenas fuente (con Git LFS si pesan mucho)
-```
-
-- **Integración en el código:** `paintBackdrop` (en `backdrop.ts`) y `paintBuildings` y `paintNodeProps` (en `props.ts`) cargarán el PNG si existe y, si no, pintarán por código como ahora. Así se puede sustituir el arte por partes y el juego nunca se queda sin fondo.
-- **Assets de Poly Haven:** tienen licencia CC0, así que se pueden usar en un juego publicado sin atribución. Aun así, conviene anotar en `art-src/CREDITS.md` qué assets se usan.
-
-## 5. Flujo de trabajo con Claude
-
-Con Blender conectado, un encargo típico es:
-
-> Monta el bioma bosque: pinos y troncos de Poly Haven a 2k en tres profundidades, suelo de tierra con piedras, niebla baja. Cámara ortográfica lateral. Renderiza las capas far, mid, ground y front según `docs/blender.md` en `public/art/biomes/forest/`.
-
-Después:
-
-1. Claude comprueba los PNG (tamaño, transparencia y línea de suelo).
-2. Si falta, activa en el código la carga de esas capas.
-3. Lo verifica en el navegador con el juego en marcha.
-4. Se ajusta el estilo (grosor del trazo, desaturación, contraste) y se repite.
-
-Orden propuesto:
-
-1. Bosque, que es el bioma del corte vertical.
-2. Castillo y sus 3 edificios.
-3. Campamento y torre.
-4. El resto de biomas.
-5. Personajes, si al final se hacen en 3D.
+- Usar los sprites de Blender fuera del banco de combate: en la campaña y en las maquetas.
+- Decidir si sustituyen definitivamente a los dibujados.

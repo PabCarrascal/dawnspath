@@ -124,9 +124,6 @@ def _along(base, tilt, d):
     return (base[0] + d * sin(radians(tilt)), base[1], base[2] + d * cos(radians(tilt)))
 
 
-HIDE = {"arrow": 20}
-
-
 def _turn(v, a):
     """Vector (x, z) girado `a` grados alrededor de Y, como los pivotes."""
     c, s = cos(radians(a)), sin(radians(a))
@@ -157,10 +154,8 @@ def _pose(hips=0, head=0, sl=0, bow=None, sr=0, er=0, draw=0, lift=None):
     turns = {"hips": hips, "head": head, "shoulder_l": sl, "bow": bow - hips - sl, "shoulder_r": sr, "elbow_r": er}
     # La flecha sale siempre recta al frente, aunque el arco vaya algo inclinado.
     turns.update({"string_t": draw, "string_b": -draw, "arrow": -bow})
-    lift = dict(lift or {})
-    if not draw:
-        lift.update(HIDE)
-    return turns, lift
+    # La flecha solo está en el arco al disparar.
+    return turns, lift or {}, () if draw else ("arrow",)
 
 
 # Reposo (dos cuadros, el segundo un píxel base más bajo), disparo y dolor.
