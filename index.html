@@ -29,7 +29,10 @@
         overflow: hidden;
         color: #f3eedf;
         font-family: 'EB Garamond', Georgia, serif;
-        background: linear-gradient(180deg, #050816 0%, #0b1030 55%, #1a1f45 100%);
+        /* El primer cuadro del amanecer (Blender) desde el principio: el vídeo arranca justo desde ahí. */
+        background:
+          url('scenes/splash-start.webp') 50% 70% / cover no-repeat,
+          linear-gradient(180deg, #050816 0%, #0b1030 55%, #1a1f45 100%);
         user-select: none;
         -webkit-user-select: none;
         transition: opacity 1.8s ease;
@@ -74,6 +77,13 @@
       .boot-land .win {
         fill: #ffcf6a;
         opacity: calc(1 - var(--p) * 0.6);
+      }
+      /* La portada dibujada solo si el vídeo no se puede cargar */
+      #boot:not(.no-film) :is(.boot-dawn, .boot-stars, .boot-sun, .boot-land) {
+        display: none;
+      }
+      #boot.no-film {
+        background: linear-gradient(180deg, #050816 0%, #0b1030 55%, #1a1f45 100%);
       }
       .boot-film {
         position: absolute;

@@ -9,8 +9,9 @@ noche azul al rosa y naranja del alba. Las ventanas brillan de noche y se
 apagan al hacerse de día.
 
 Escribe <nombre>.webm y <nombre>.mp4 (el vídeo, FRAMES cuadros a FPS cuadros por
-segundo, suavizado al reproducir) y <nombre>.webp (el último cuadro, para quien
-prefiere menos movimiento).
+segundo, suavizado al reproducir), <nombre>-start.webp (el primer cuadro, de
+fondo mientras el vídeo carga) y <nombre>.webp (el último, para quien prefiere
+menos movimiento o si no se puede reproducir).
 """
 
 import os
@@ -286,5 +287,6 @@ def render(path):
     smooth = ["-vf", "minterpolate=fps=30:mi_mode=blend,format=yuv420p"]
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", *src, *smooth, "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "36", "-row-mt", "1", base + ".webm"], check=True)
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", *src, *smooth, "-c:v", "libx264", "-crf", "24", "-preset", "slow", "-movflags", "+faststart", base + ".mp4"], check=True)
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(tmp, "f000.png"), "-quality", "82", base + "-start.webp"], check=True)
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", os.path.join(tmp, f"f{FRAMES - 1:03d}.png"), "-quality", "86", base + ".webp"], check=True)
     print(f"escena: {base}.webm/.mp4/.webp")
