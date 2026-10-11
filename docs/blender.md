@@ -31,6 +31,14 @@ El mapa del sendero también sale de Blender: `tools/blender/scenes/map.py` cons
 
 Renderizarlo tarda un minuto y medio.
 
+## La portada
+
+La pantalla de carga muestra un amanecer sobre el castillo del Alba: `tools/blender/scenes/splash.py` renderiza 36 cuadros con el cielo físico de Blender (el sol sube de bajo el horizonte y las ventanas se apagan) y ffmpeg, en el servidor, los convierte en `public/scenes/splash.webm` y `.mp4`, fundiendo cuadros para que el movimiento sea suave. También deja el último cuadro en `splash.webp`.
+
+- El vídeo se funde sobre la portada dibujada en cuanto empieza a reproducirse y se queda en el último cuadro. Si no carga, se ve la dibujada.
+- Con «reducir movimiento» activado en el sistema, solo se muestra el último cuadro.
+- Renderizarlo tarda unos 15 minutos.
+
 ## Archivos
 
 | Archivo | Qué es |
@@ -40,6 +48,7 @@ Renderizarlo tarda un minuto y medio.
 | `tools/blender/pixelart.py` | La tubería común: piezas, poses, render y acabado. |
 | `tools/blender/palette.py` | La paleta `C` de `characters.ts`, en rampas de tres tonos. Si cambia una, hay que cambiar la otra. |
 | `tools/blender/sprites/<modelo>.py` | Un archivo por personaje. |
+| `tools/blender/scenes/splash.py` | El amanecer de la portada (vídeo). |
 | `tools/blender/scenes/map.py` | La escena del mapa del sendero; sus datos, en `scenes/map.json` (de `export-map.ts`). |
 
 ## Cómo se renderiza una hoja

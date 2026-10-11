@@ -134,8 +134,27 @@ async function prologue() {
   }
 }
 
+/**
+ * Amanecer en vídeo (renderizado en Blender): se funde sobre la portada dibujada
+ * en cuanto empieza a reproducirse y se queda en el último cuadro, con el sol ya
+ * fuera. Con menos movimiento, solo ese último cuadro. Si no carga, queda la dibujada.
+ */
+function film() {
+  const v = root.querySelector<HTMLVideoElement>('.boot-film');
+  if (!v) return;
+  if (calm) {
+    v.preload = 'none';
+    v.poster = 'scenes/splash.webp';
+    v.classList.add('on');
+    return;
+  }
+  v.addEventListener('playing', () => v.classList.add('on'), { once: true });
+  v.play().catch(() => undefined);
+}
+
 async function main() {
   stars();
+  film();
   raf = requestAnimationFrame(tick);
   try {
     const [, , game] = await Promise.all([loadFonts(), loadMusic(), loadGame()]);
