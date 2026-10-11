@@ -496,10 +496,10 @@ const castle: BiomeDef = {
     k.castleTower(wx(W - 2), wz(3), 1.3, 5.5, 0x3a4a7a);
     k.castleTower(wx(13.5), wz(1.6), 2.0, 7, 0x7a2a2a);
     for (const i of [5, 9, 18, 22]) k.banner(wx(i), wz(4), 3.6, 0x8a1e1e);
-    // Herrería, taberna y logia
-    k.house(wx(5), wz(5.6), 2.4, 1.8, 1.4, 0, { walls: 'stone', roof: 'slate', chimney: true });
-    k.house(wx(13.5), wz(5.4), 3.0, 2.0, 2.2, 0, { roof: 'tile', chimney: true });
-    k.house(wx(21.5), wz(5.6), 2.6, 1.8, 1.5, 0, { walls: 'wood', roof: 'thatch' });
+    // Herrería, taberna y logia: modelos de Blender; mientras cargan (o si faltan), las casas de siempre
+    k.model('smithy', k.house(wx(5), wz(5.6), 2.4, 1.8, 1.4, 0, { walls: 'stone', roof: 'slate', chimney: true }));
+    k.model('tavern', k.house(wx(13.5), wz(5.4), 3.0, 2.0, 2.2, 0, { roof: 'tile', chimney: true }));
+    k.model('lodge', k.house(wx(21.5), wz(5.6), 2.6, 1.8, 1.5, 0, { walls: 'wood', roof: 'thatch' }));
     // Fragua encendida delante de la herrería y andamio en la logia
     k.add(k.box(0.6, 0.5, 0.5, k.glow(0xff7a2a, 'fire'), 0, 0.25, 0), wx(5) + 0.6, wz(5.6) + 1.1);
     k.pointLight(wx(5) + 0.6, 0.6, wz(5.6) + 1.4, 0xff8a3a, 10, 'fire', 5);

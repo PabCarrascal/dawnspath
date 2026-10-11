@@ -6,6 +6,7 @@ Entrada para Blender, en el servidor (la lanza run.sh):
 - sprites/<nombre>.py: un personaje; escribe <salida>/sprites/<nombre>.png.
 - scenes/<nombre>.py: una escena con su propia función render(ruta); escribe
   <salida>/scenes/<nombre>.webp.
+- models/<nombre>.py: un modelo 3D con build(); escribe <salida>/models/<nombre>.glb.
 """
 
 import importlib
@@ -22,5 +23,10 @@ module = importlib.import_module(f"{kind}.{name}")
 os.makedirs(os.path.join(out, kind), exist_ok=True)
 if kind == "scenes":
     module.render(os.path.join(out, kind, f"{name}.webp"))
+elif kind == "models":
+    import modeling  # noqa: E402
+
+    module.build()
+    modeling.export(os.path.join(out, kind, f"{name}.glb"))
 else:
     pixelart.sheet(module, os.path.join(out, kind, f"{name}.png"))

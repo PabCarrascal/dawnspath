@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Renderiza con Blender en el servidor y trae el resultado a public/:
-# los personajes de sprites/ a public/sprites/<nombre>.png y las escenas de
-# scenes/ (el mapa) a public/scenes/<nombre>.webp.
+# los personajes de sprites/ a public/sprites/<nombre>.png, las escenas de
+# scenes/ (mapa, portada) a public/scenes/ y los modelos 3D de models/
+# (edificios del castillo) a public/models/<nombre>.glb.
 #
 #   npm run assets              # solo lo que ha cambiado desde su último render
 #   npm run assets -- --todo    # todo
@@ -26,9 +27,14 @@ public="$here/../../public"
 (cd "$here/../.." && npx vite-node tools/blender/export-map.ts)
 
 # tipo/nombre de cada modelo y escena, y la imagen que produce.
-target() { if [ -f "$here/scenes/$1.py" ]; then echo "scenes/$1"; else echo "sprites/$1"; fi; }
-image() { case "$1" in scenes/*) echo "$public/$1.webp" ;; *) echo "$public/$1.png" ;; esac; }
-all="$(cd "$here" && ls sprites/*.py scenes/*.py 2>/dev/null | sed 's/\.py$//' || true)"
+target() {
+  for kind in scenes models; do
+    if [ -f "$here/$kind/$1.py" ]; then echo "$kind/$1"; return; fi
+  done
+  echo "sprites/$1"
+}
+image() { case "$1" in scenes/*) echo "$public/$1.webp" ;; models/*) echo "$public/$1.glb" ;; *) echo "$public/$1.png" ;; esac; }
+all="$(cd "$here" && ls sprites/*.py scenes/*.py models/*.py 2>/dev/null | sed 's/\.py$//' || true)"
 
 todo=""
 if [ "${1:-}" = "--todo" ]; then
@@ -55,7 +61,7 @@ run="$REMOTE/run-$(date +%s)-$$"
 $SSH "$HOST" "mkdir -p $run"
 rsync -az --exclude __pycache__ -e "$SSH" "$here/" "$HOST:$run/blender/"
 $SSH "$HOST" "cd $run && mkdir out && for t in $todo; do
-  blender -b --factory-startup -P blender/build.py -- \$t out 2>&1 | grep -E '^sprite:|^escena:|Error|Traceback|^  File|^\w+Error' || true
+  blender -b --factory-startup -P blender/build.py -- \$t out 2>&1 | grep -E '^sprite:|^escena:|^modelo:|Error|Traceback|^  File|^\w+Error' || true
   ls out/\$t.* >/dev/null 2>&1 || { echo \"falló: \$t\"; exit 1; }
 done" || { $SSH "$HOST" "rm -rf $run"; exit 1; }
 rsync -az -e "$SSH" "$HOST:$run/out/" "$public/"

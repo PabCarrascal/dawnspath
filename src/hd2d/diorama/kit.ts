@@ -3,6 +3,7 @@ import { Rng } from '../../core/rng';
 import * as px from '../pixel';
 import { SpriteKind, spriteSheet } from '../characters';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { CHAR_SCALE, crossQuad, floaters, PixelSprite, swaying } from '../sprite';
 import { BOTTOM, Grid, inClear, W, D, wx, wz } from './grid';
 
@@ -11,6 +12,24 @@ export type TreeKind = 'round' | 'pine' | 'dead' | 'willow';
 
 /** Luz que depende de la hora: farolas y ventanas se encienden de noche; los cristales siempre brillan. */
 type LightKind = 'lamp' | 'fire' | 'always';
+
+/** Pizarra azulada de los tejados. */
+const SLATE = [0x4a4a5a, 0x56566a, 0x62627a, 0x34343e];
+
+/** Modelos hechos en Blender (public/models/), cargados una vez; null si no hay. */
+const gltf = new GLTFLoader();
+const models = new Map<string, Promise<THREE.Group | null>>();
+function loadModel(name: string) {
+  let p = models.get(name);
+  if (!p) {
+    p = gltf.loadAsync(`models/${name}.glb`).then(
+      (g) => g.scene,
+      () => null,
+    );
+    models.set(name, p);
+  }
+  return p;
+}
 
 /**
  * Caja de herramientas para decorar una maqueta: árboles, rocas, casas,
@@ -432,7 +451,7 @@ export class Kit {
       opts.roof === 'thatch'
         ? this.mat('thatch', () => px.thatch(this.seed))
         : opts.roof === 'slate'
-          ? this.mat('slate', () => px.roof(this.seed + 2, [0x4a4a5a, 0x56566a, 0x62627a, 0x34343e]))
+          ? this.mat('slate', () => px.roof(this.seed + 2, SLATE))
           : this.mat('roof', () => px.roof(this.seed));
     const g = new THREE.Group();
     g.add(this.box(w, h, d, walls, 0, h / 2, 0));
@@ -446,6 +465,57 @@ export class Kit {
     if (opts.chimney) g.add(this.box(0.25, 0.7, 0.25, this.mat('bricks', () => px.bricks(this.seed)), w * 0.25, h + d * 0.45, 0));
     return this.add(g, x, z, this.y(x, z), rot);
   }
+
+  /**
+   * Modelo hecho en Blender (public/models/<name>.glb, de tools/blender/models/)
+   * en el sitio de `stand`, que se queda si el modelo no carga. Los materiales
+   * que se llaman como una textura del juego la toman, y window y fire se
+   * encienden de noche como las ventanas y fuegos de siempre.
+   */
+  model(name: string, stand: THREE.Object3D) {
+    void loadModel(name).then((src) => {
+      if (!src || !stand.parent) return;
+      const o = src.clone(true);
+      o.traverse((c) => {
+        const m = c as THREE.Mesh;
+        if (!m.isMesh) return;
+        m.castShadow = true;
+        m.receiveShadow = true;
+        m.material = this.named((m.material as THREE.Material).name) ?? m.material;
+      });
+      o.position.copy(stand.position);
+      o.rotation.copy(stand.rotation);
+      stand.parent.add(o);
+      stand.removeFromParent();
+    });
+    return stand;
+  }
+
+  /** Material del juego para un nombre de material de Blender (ver tools/blender/modeling.py). */
+  private named(name: string): THREE.Material | null {
+    switch (name) {
+      case 'bricks':
+        return this.mat('bricks', () => px.bricks(this.seed));
+      case 'planks':
+        return this.mat('planks', () => px.planks(this.seed));
+      case 'plaster':
+        return this.mat('plaster', () => px.plaster(this.seed));
+      case 'slate':
+        return this.mat('slate', () => px.roof(this.seed + 2, SLATE));
+      case 'roof':
+        return this.mat('roof', () => px.roof(this.seed));
+      case 'thatch':
+        return this.mat('thatch', () => px.thatch(this.seed));
+      case 'window':
+        return (this.windowGlow ??= this.glow(0xffc070, 'lamp'));
+      case 'fire':
+        return (this.fireGlow ??= this.glow(0xff7a2a, 'fire'));
+    }
+    return null;
+  }
+
+  private windowGlow?: THREE.Material;
+  private fireGlow?: THREE.Material;
 
   well(x: number, z: number) {
     const stone = this.mat('bricks', () => px.bricks(this.seed));

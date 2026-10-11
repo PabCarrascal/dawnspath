@@ -31,6 +31,15 @@ El mapa del sendero también sale de Blender: `tools/blender/scenes/map.py` cons
 
 Renderizarlo tarda un minuto y medio.
 
+## Edificios del castillo
+
+La herrería, la taberna y la logia son modelos 3D hechos en Blender (`tools/blender/models/<nombre>.py`) que se exportan a `public/models/<nombre>.glb` y que la maqueta del castillo carga en lugar de las casas generadas por código.
+
+- **Texturas y luz del juego:** los materiales que se llaman como una textura del juego (`bricks`, `planks`, `plaster`, `slate`, `roof`, `thatch`) toman esa textura al cargar, y `window` y `fire` se encienden de noche como el resto de ventanas y fuegos. Cada cara lleva la textura entera, como las cajas del juego.
+- **Medidas:** metros, con el origen en el centro de la planta a ras de suelo y la fachada mirando a −Y en Blender (hacia la cámara en el juego). Cada edificio ocupa la misma planta que la casa a la que sustituye, así que la fragua, el andamio y las etiquetas siguen en su sitio.
+- **Si un modelo no carga:** se queda la casa de siempre.
+- Las piezas comunes (cajas, vigas, tejados a dos aguas, tejadillos) están en `tools/blender/modeling.py`.
+
 ## La portada
 
 La pantalla de carga muestra un amanecer sobre el castillo del Alba: `tools/blender/scenes/splash.py` renderiza 36 cuadros con el cielo físico de Blender (el sol sube de bajo el horizonte y las ventanas se apagan) y ffmpeg, en el servidor, los convierte en `public/scenes/splash.webm` y `.mp4`, fundiendo cuadros para que el movimiento sea suave. También deja el último cuadro en `splash.webp`.
@@ -49,6 +58,7 @@ La pantalla de carga muestra un amanecer sobre el castillo del Alba: `tools/blen
 | `tools/blender/palette.py` | La paleta `C` de `characters.ts`, en rampas de tres tonos. Si cambia una, hay que cambiar la otra. |
 | `tools/blender/sprites/<modelo>.py` | Un archivo por personaje. |
 | `tools/blender/scenes/splash.py` | El amanecer de la portada (vídeo). |
+| `tools/blender/models/<nombre>.py` | Modelos 3D de los edificios del castillo (GLB); piezas comunes en `modeling.py`. |
 | `tools/blender/scenes/map.py` | La escena del mapa del sendero; sus datos, en `scenes/map.json` (de `export-map.ts`). |
 
 ## Cómo se renderiza una hoja
