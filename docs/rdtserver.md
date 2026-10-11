@@ -59,6 +59,8 @@ Con `rsync` hay que pasarle las mismas opciones de SSH con `-e`:
 rsync -az -e "ssh -p 3322 -i ~/.ssh/linea_deploy -o IdentitiesOnly=yes" carpeta/ kayadmin@192.168.1.45:destino/
 ```
 
+`npm run deploy` y `npm run assets` ya pasan estas opciones por su cuenta: no necesitan el atajo ni piden contraseña.
+
 ## Si falla
 
 | Síntoma | Qué mirar |
