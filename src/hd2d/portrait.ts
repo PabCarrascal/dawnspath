@@ -1,4 +1,4 @@
-import { SPRITE_SIZE, SpriteKind, spriteSheet } from './characters';
+import { SPRITE_RES, SPRITE_SIZE, SpriteKind, spriteSheet } from './characters';
 
 const cache = new Map<string, string>();
 
@@ -17,7 +17,7 @@ export function portrait(kind: string, flip = false): string {
   const ch = Math.round(h * 0.62);
   const cw = Math.min(w, Math.round(ch * 1.05));
   const cx = Math.round((w - cw) / 2);
-  const scale = 3;
+  const scale = 4;
   const out = document.createElement('canvas');
   out.width = cw * scale;
   out.height = ch * scale;
@@ -27,7 +27,9 @@ export function portrait(kind: string, flip = false): string {
     ctx.translate(out.width, 0);
     ctx.scale(-1, 1);
   }
-  ctx.drawImage(sheet, cx, 0, cw, ch, 0, 0, cw * scale, ch * scale);
+  // La hoja va a doble resolución: se recorta en sus coordenadas y se amplía menos.
+  const R = SPRITE_RES;
+  ctx.drawImage(sheet, cx * R, 0, cw * R, ch * R, 0, 0, cw * scale, ch * scale);
   const url = out.toDataURL();
   cache.set(key, url);
   return url;

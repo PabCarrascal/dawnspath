@@ -8,7 +8,7 @@ import { Rng } from '../core/rng';
 import { SpriteKind, spriteSheet } from './characters';
 import { buildDiorama, Diorama } from './diorama/build';
 import { BATTLE, slot } from './diorama/grid';
-import { PixelSprite, spriteGlow } from './sprite';
+import { CHAR_SCALE, PixelSprite, spriteGlow } from './sprite';
 import { LookController, Mode } from './look';
 import { Px } from './pixel';
 import { buildPost } from './post';
@@ -141,7 +141,7 @@ export class Hd2dCombatView implements BattleView {
 
   private addUnit(f: Fighter) {
     const kind = (f.kind in { hero: 1, spearman: 1, archer: 1, chaplain: 1, shade: 1, brute: 1, stalker: 1, herald: 1, mimic: 1 } ? f.kind : 'shade') as SpriteKind;
-    const sprite = new PixelSprite(spriteSheet(kind).texture(), 1.05, f.side === 'foe' ? 1.3 : 1.6, f.side === 'foe');
+    const sprite = new PixelSprite(spriteSheet(kind).texture(), CHAR_SCALE, f.side === 'foe' ? 1.3 : 1.6, f.side === 'foe');
     this.scene.add(sprite.mesh);
     const mat = sprite.mesh.material as THREE.MeshStandardMaterial;
     mat.transparent = true;

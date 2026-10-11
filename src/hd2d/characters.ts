@@ -7,6 +7,34 @@ export type Pose = 'idle' | 'attack' | 'hurt';
 export const POSE_FRAME: Record<Exclude<Pose, 'idle'>, number> = { attack: 2, hurt: 3 };
 
 const OUTLINE = 0x1a1220;
+
+/**
+ * Los sprites se dibujan a doble resolución: las siluetas se trazan en la
+ * rejilla base (32 × 40 en los humanos) sobre un lienzo que lo duplica todo, y
+ * encima van los detalles finos y las pasadas de acabado a resolución completa.
+ */
+export const SPRITE_RES = 2;
+
+/** Lo mínimo que usan las funciones de dibujo: píxeles y rectángulos. */
+interface Canvas {
+  set(x: number, y: number, color: number, alpha?: number): void;
+  rect(x: number, y: number, w: number, h: number, color: number): void;
+}
+
+/** Lienzo que dibuja en la rejilla base sobre otro `k` veces mayor. */
+function scaled(hi: Px, k: number): Canvas {
+  return {
+    set: (x, y, c) => hi.rect(Math.round(x) * k, Math.round(y) * k, k, k, c),
+    rect: (x, y, w, h, c) => hi.rect(x * k, y * k, w * k, h * k, c),
+  };
+}
+
+const mixC = (a: number, b: number, t: number) => {
+  const ch = (sh: number) => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+};
+const lighten = (c: number, t: number) => mixC(c, 0xfff6e0, t);
+const darken = (c: number, t: number) => mixC(c, 0x0a0614, t);
 const SKIN = [0xf2c8a0, 0xd8a078];
 
 export type SpriteKind = 'hero' | 'spearman' | 'archer' | 'chaplain' | 'shade' | 'brute' | 'stalker' | 'herald' | 'mimic' | 'villager' | 'smith' | 'chicken';
@@ -43,21 +71,21 @@ const C = {
 };
 
 /** Rectángulo con su columna izquierda iluminada y las dos derechas en sombra. */
-function shaded(p: Px, x: number, y: number, w: number, h: number, tones: number[]) {
+function shaded(p: Canvas, x: number, y: number, w: number, h: number, tones: number[]) {
   p.rect(x, y, w, h, tones[1]);
   p.rect(x, y, 1, h, tones[0]);
   p.rect(x + w - 2, y, 2, h, tones[2]);
   p.rect(x, y, w, 1, tones[0]);
 }
 
-function legs(p: Px, pants: number[], boots: number[]) {
+function legs(p: Canvas, pants: number[], boots: number[]) {
   shaded(p, 13, 31, 3, 6, pants);
   shaded(p, 17, 31, 3, 6, pants);
   shaded(p, 13, 36, 3, 3, boots);
   shaded(p, 17, 36, 4, 3, boots);
 }
 
-function face(p: Px, dy: number) {
+function face(p: Canvas, dy: number) {
   shaded(p, 12, 11 + dy, 10, 10, SKIN.concat(SKIN[1]));
   p.rect(13, 12 + dy, 8, 8, SKIN[0]);
   p.rect(20, 12 + dy, 2, 8, SKIN[1]);
@@ -68,11 +96,12 @@ function face(p: Px, dy: number) {
   p.set(19, 19 + dy, 0xc88070);
 }
 
-function drawHero(p: Px, dy: number, atk = false) {
+function drawHero(p: Canvas, dy: number, atk = false) {
   // Capa por detrás, ondeando hacia la izquierda
   for (let y = 20; y < 37; y++) {
     const w = 3 + Math.floor((y - 20) / 3);
-    p.rect(12 - w + 2, y + (y > 30 ? 0 : dy), w, 1, y % 3 ? C.red[1] : C.red[2]);
+    p.rect(12 - w + 2, y + (y > 30 ? 0 : dy), w, 1, C.red[1]);
+    p.set(12 - w + 2, y + (y > 30 ? 0 : dy), C.red[2]);
   }
   legs(p, C.pants, C.boots);
   shaded(p, 11, 21 + dy, 10, 11, C.blue);
@@ -107,7 +136,7 @@ function drawHero(p: Px, dy: number, atk = false) {
   p.rect(23, 29 + dy, 2, 3, C.leather[2]);
 }
 
-function drawSpearman(p: Px, dy: number, atk = false) {
+function drawSpearman(p: Canvas, dy: number, atk = false) {
   if (!atk) {
     // Lanza por detrás del cuerpo
     p.rect(24, 4 + dy, 1, 35 - dy, C.wood[1]);
@@ -150,7 +179,7 @@ function drawSpearman(p: Px, dy: number, atk = false) {
   p.rect(22, 26 + dy, 3, 2, SKIN[0]);
 }
 
-function drawArcher(p: Px, dy: number, atk = false) {
+function drawArcher(p: Canvas, dy: number, atk = false) {
   // Carcaj a la espalda con plumas
   shaded(p, 8, 17 + dy, 3, 12, C.leather);
   p.rect(8, 14 + dy, 1, 3, C.white[1]);
@@ -198,7 +227,7 @@ function drawArcher(p: Px, dy: number, atk = false) {
   p.rect(21, 25 + dy, 2, 2, SKIN[0]);
 }
 
-function drawChaplain(p: Px, dy: number, atk = false) {
+function drawChaplain(p: Canvas, dy: number, atk = false) {
   // Túnica larga hasta los pies
   for (let y = 20; y < 39; y++) {
     const spread = Math.floor((y - 20) / 4);
@@ -232,7 +261,7 @@ function drawChaplain(p: Px, dy: number, atk = false) {
   p.rect(22, 33 + dy, 4, 1, 0x3a3a44);
 }
 
-function drawShade(p: Px, dy: number, atk = false) {
+function drawShade(p: Canvas, dy: number, atk = false) {
   // Silueta de humo con ojos rojos; flota, así que todo sube y baja
   const body = [0x3a2a4a, 0x241a30, 0x140e1c];
   for (let y = 8; y < 38; y++) {
@@ -257,7 +286,7 @@ function drawShade(p: Px, dy: number, atk = false) {
 }
 
 /** Elipse rellena con luz arriba a la izquierda y sombra abajo a la derecha. */
-function blob(p: Px, cx: number, cy: number, rx: number, ry: number, tones: number[]) {
+function blob(p: Canvas, cx: number, cy: number, rx: number, ry: number, tones: number[]) {
   for (let y = -ry; y <= ry; y++) {
     for (let x = -rx; x <= rx; x++) {
       const d = (x * x) / (rx * rx) + (y * y) / (ry * ry);
@@ -268,7 +297,7 @@ function blob(p: Px, cx: number, cy: number, rx: number, ry: number, tones: numb
   }
 }
 
-function line(p: Px, x0: number, y0: number, x1: number, y1: number, color: number, w = 1) {
+function line(p: Canvas, x0: number, y0: number, x1: number, y1: number, color: number, w = 1) {
   const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0));
   for (let i = 0; i <= n; i++) {
     const x = Math.round(x0 + ((x1 - x0) * i) / n);
@@ -277,7 +306,7 @@ function line(p: Px, x0: number, y0: number, x1: number, y1: number, color: numb
   }
 }
 
-function drawBrute(p: Px, dy: number, atk = false) {
+function drawBrute(p: Canvas, dy: number, atk = false) {
   const hide = [0x6a4a5a, 0x4a3040, 0x2e1c28];
   // Patas cortas y gruesas
   shaded(p, 15, 37, 6, 10, hide);
@@ -315,7 +344,7 @@ function drawBrute(p: Px, dy: number, atk = false) {
   p.rect(36, 31 + dy, 4, 3, hide[0]);
 }
 
-function drawStalker(p: Px, dy: number, atk = false) {
+function drawStalker(p: Canvas, dy: number, atk = false) {
   const shell = [0x6a3a8a, 0x4a2464, 0x2a123c];
   const leg = 0x1e1028;
   // Patas articuladas: alternan al respirar
@@ -345,7 +374,7 @@ function drawStalker(p: Px, dy: number, atk = false) {
   line(p, 36, 18 + dy, 40, 20 + dy, 0xa08cc0, 1);
 }
 
-function drawHerald(p: Px, dy: number, atk = false) {
+function drawHerald(p: Canvas, dy: number, atk = false) {
   const robe = [0x3a2a4e, 0x241a34, 0x140e1e];
   if (atk) {
     // Tajo: la guadaña cae en diagonal y la hoja barre por delante, abajo
@@ -396,7 +425,7 @@ function drawHerald(p: Px, dy: number, atk = false) {
 }
 
 /** Cofre mímico: la tapa se abre como una boca con dientes, ojos y lengua. Al atacar se abre del todo. */
-function drawMimic(p: Px, dy: number, atk = false) {
+function drawMimic(p: Canvas, dy: number, atk = false) {
   const wood = [0xa8743e, 0x80542a, 0x553418];
   const mouth = 0x3a0612;
   const tooth = 0xf4ecd8;
@@ -435,7 +464,7 @@ function drawMimic(p: Px, dy: number, atk = false) {
 
 // ───────────────────────── gente del castillo ─────────────────────────
 
-function drawVillager(p: Px, dy: number) {
+function drawVillager(p: Canvas, dy: number) {
   legs(p, C.pants, C.boots);
   // Saya parda con delantal
   shaded(p, 11, 21 + dy, 10, 12, [0xb08a5a, 0x8a6a40, 0x5e4628]);
@@ -455,7 +484,7 @@ function drawVillager(p: Px, dy: number) {
   p.rect(24, 27 + dy, 2, 1, C.green[0]);
 }
 
-function drawSmith(p: Px, dy: number) {
+function drawSmith(p: Canvas, dy: number) {
   legs(p, C.pants, C.boots);
   // Camisa remangada y mandil de cuero
   shaded(p, 11, 21 + dy, 10, 11, [0xe8dcc0, 0xc8b898, 0x8a7a5a]);
@@ -471,7 +500,7 @@ function drawSmith(p: Px, dy: number) {
   shaded(p, 19, 12 + dy, 5, 3, C.steel);
 }
 
-function drawChicken(p: Px, dy: number) {
+function drawChicken(p: Canvas, dy: number) {
   blob(p, 6, 7 + dy, 5, 3, C.white);
   blob(p, 10, 4 + dy, 2, 2, C.white);
   p.rect(9, 1 + dy, 2, 1, C.red[1]);
@@ -485,7 +514,7 @@ function drawChicken(p: Px, dy: number) {
   p.set(8, 10, C.gold[2]);
 }
 
-const DRAW: Record<SpriteKind, (p: Px, dy: number, atk: boolean) => void> = {
+const DRAW: Record<SpriteKind, (p: Canvas, dy: number, atk: boolean) => void> = {
   hero: drawHero,
   spearman: drawSpearman,
   archer: drawArcher,
@@ -516,17 +545,193 @@ function leaned(src: Px, lean: number): Px {
   return out;
 }
 
-/** Hoja de sprites de un personaje: dos cuadros de reposo, el golpe y el dolor, con contorno. */
+// ───────────────────────── detalles a resolución completa ─────────────────────────
+// Coordenadas en la rejilla doble (base × 2); `d` es el balanceo de reposo ya doblado.
+
+const TRANSPARENT = 0;
+
+/** Repinta con `color` solo los píxeles de la zona que ahora son de alguno de `from`. */
+function recolor(p: Px, x: number, y: number, w: number, h: number, from: number[], color: number, step = 1, skew = 0) {
+  for (let j = 0; j < h; j += step) {
+    for (let i = (j / step) % 2 ? skew : 0; i < w; i += step) {
+      const px = x + i;
+      const py = y + j;
+      if (p.alphaAt(px, py) && from.includes(p.colorAt(px, py))) p.set(px, py, color);
+    }
+  }
+}
+
+/** Ojos con blanco, pupila y brillo, cejas, nariz y boca. */
+function eyes(p: Px, d: number, mouth = true) {
+  for (const X of [30, 36]) {
+    const Y = 30 + d;
+    p.rect(X - 1, Y, 3, 4, 0xf6f0e6);
+    p.rect(X, Y + 1, 2, 3, 0x2a1a24);
+    p.set(X, Y + 1, 0xffffff);
+    p.rect(X - 1, Y - 2, 4, 1, 0x6a3e22);
+  }
+  p.rect(41, 33 + d, 2, 3, SKIN[1]);
+  if (mouth) p.rect(35, 39 + d, 4, 1, 0xa0504a);
+}
+
+/** Brillo a lo largo de una hoja o una punta metálica. */
+const shine = (p: Px, x: number, y: number, w: number, h: number) => p.rect(x, y, w, h, 0xffffff);
+
+const DETAIL: Partial<Record<SpriteKind, (p: Px, d: number, atk: boolean) => void>> = {
+  hero(p, d, atk) {
+    eyes(p, d);
+    // Cota de malla en la túnica, hebilla del cinto y hebras del penacho
+    recolor(p, 22, 42 + d, 20, 14, [C.blue[1]], 0x27509a, 2, 1);
+    p.rect(30, 55 + d, 5, 3, C.gold[0]);
+    p.set(32, 56 + d, 0x5a3a10);
+    p.rect(28, 9 + d, 1, 5, 0xff8a7a);
+    p.rect(32, 8 + d, 1, 6, 0xff8a7a);
+    // Pliegues de la capa
+    for (const x of [8, 13, 18]) recolor(p, x, 42, 1, 30, [C.red[1]], C.red[2]);
+    if (atk) {
+      shine(p, 52, 46, 12, 1);
+      p.set(63, 46, TRANSPARENT, 0);
+      p.set(63, 49, TRANSPARENT, 0);
+    } else {
+      shine(p, 46, 26 + d, 1, 26);
+      p.rect(48, 28 + d, 1, 24, 0x8a94a4);
+      p.set(46, 24 + d, TRANSPARENT, 0);
+      p.set(49, 24 + d, TRANSPARENT, 0);
+      p.rect(47, 54 + d, 2, 2, 0xff5a4a); // gema del gavilán
+    }
+  },
+  spearman(p, d, atk) {
+    eyes(p, d, false);
+    // Barba en hebras, remaches del escudo con su umbo y brillo de la punta
+    recolor(p, 32, 36 + d, 12, 6, [C.hair[2], C.hair[1]], 0x4a2a10, 2);
+    p.rect(19, 53 + d, 3, 3, C.gold[0]);
+    for (let k = 0; k < 8; k++) {
+      const a = (k / 8) * Math.PI * 2;
+      p.set(Math.round(20 + Math.cos(a) * 8), Math.round(54 + d + Math.sin(a) * 8), C.gold[1]);
+    }
+    if (atk) shine(p, 56, 49, 7, 1);
+    else shine(p, 48, 1 + d, 1, 6);
+  },
+  archer(p, d, atk) {
+    eyes(p, d);
+    // Broche de la capa, puntadas del carcaj y empuñadura del arco
+    p.rect(24, 42 + d, 3, 3, C.gold[0]);
+    for (let y = 36; y < 56; y += 4) p.set(18, y + d, C.leather[0]);
+    if (!atk) p.rect(44, 46 + d, 4, 4, C.leather[1]);
+    else shine(p, 60, 42, 3, 1);
+  },
+  chaplain(p, d, atk) {
+    eyes(p, d);
+    // Ribete bordado en la túnica y halo de luz del farol
+    for (let y = 44; y < 72; y += 4) p.rect(31, y + d, 2, 2, C.gold[0]);
+    const [lx, ly] = atk ? [37, 2] : [43, 56 + d];
+    for (const [x, y, w, h] of [[lx - 2, ly + 2, 1, 8], [lx + 11, ly + 2, 1, 8], [lx + 2, ly - 2, 6, 1]]) p.rect(x, y, w, h, 0xfff2b0);
+  },
+  villager(p, d) {
+    eyes(p, d);
+    recolor(p, 40, 56 + d, 14, 8, [C.wood[1]], C.wood[2], 2, 1); // trenzado de la cesta
+  },
+  smith(p, d) {
+    eyes(p, d);
+    shine(p, 39, 25 + d, 8, 1); // brillo del martillo
+  },
+  shade(p, d) {
+    for (const X of [35, 41]) p.rect(X, 31 + d, 2, 2, 0xffe0e0);
+  },
+  brute(p, d, atk) {
+    // Pelaje a trazos y anillas en los cuernos
+    for (let y = 30; y < 80; y += 5)
+      for (let x = 12; x < 72; x += 4) {
+        // Trazos sueltos e irregulares, no una rejilla de lunares
+        const h = (x * 73 + y * 151) % 17;
+        if (h < 4) recolor(p, x + (h % 3), y + d, 1, 3, [0x4a3040, 0x6a4a5a], 0x3a2432);
+      }
+    for (const [x0, y0, x1, y1] of [[62, 22, 56, 6], [76, 22, 84, 6]])
+      for (let t = 0.2; t < 1; t += 0.25) p.rect(Math.round(x0 + (x1 - x0) * t) - 1, Math.round(y0 + (y1 - y0) * t) + d, 4, 1, 0xa89c80);
+    if (!atk) shine(p, 86, 18 + d, 2, 4);
+  },
+  stalker(p, d) {
+    // Segmentos del caparazón
+    for (const x of [26, 32, 38, 44]) recolor(p, x, 24 + d, 1, 22, [0x4a2464, 0x6a3a8a], 0x2a123c);
+  },
+  herald(p, d) {
+    // Ojos que brillan, destello en la gema y en las puntas de la corona
+    for (const X of [38, 48]) p.rect(X, 26 + d, 2, 2, 0xd0f0ff);
+    p.set(41, 66 + d, 0xffffff);
+    for (let k = 0; k < 5; k++) p.set(30 + k * 6 + (k - 2) * 2, 2 + d + Math.abs(k - 2) * 2, 0x8a7aa8);
+  },
+  mimic(p, d) {
+    // Veta de la madera y remaches dorados en los flejes
+    for (const y of [46, 52, 60]) recolor(p, 10, y, 50, 1, [0x80542a, 0xa8743e], 0x6a4422);
+    for (const x of [18, 46]) for (const y of [44, 54, 62]) p.rect(x + 1, y, 2, 2, 0xffe08a);
+    void d;
+  },
+};
+
+/**
+ * Acabado a resolución completa: luz en los bordes de arriba a la izquierda,
+ * sombra en los de abajo a la derecha y una trama sutil en las superficies
+ * grandes (tela, cuero, piel), como el sombreado de los sprites de 16 bits.
+ */
+function finish(p: Px) {
+  const src = new Px(p.w, p.h);
+  src.blit(p, 0, 0);
+  const solid = (x: number, y: number) => src.alphaAt(x, y) > 0;
+  for (let y = 0; y < p.h; y++) {
+    for (let x = 0; x < p.w; x++) {
+      if (!solid(x, y)) continue;
+      const c = src.colorAt(x, y);
+      if (!solid(x - 1, y) || !solid(x, y - 1)) p.set(x, y, lighten(c, 0.22));
+      else if (!solid(x + 1, y) || !solid(x, y + 1)) p.set(x, y, darken(c, 0.2));
+      else {
+        // Trama: solo en telas y pieles de criatura (ni caras, ni metal, ni lienzo blanco),
+        // donde los ocho vecinos son del mismo color.
+        let flat = !NO_GRAIN.has(c);
+        for (let j = -1; j <= 1 && flat; j++) for (let i = -1; i <= 1 && flat; i++) if (src.colorAt(x + i, y + j) !== c || !solid(x + i, y + j)) flat = false;
+        if (flat && (x * 7 + y * 13) % 9 === 0) p.set(x, y, darken(c, 0.1));
+      }
+    }
+  }
+}
+
+/** Colores que no llevan trama: piel, metal, blanco y oro se ven limpios. */
+const NO_GRAIN = new Set([...SKIN, ...C.steel, ...C.white, ...C.gold, 0xe8e0d0, 0xf6f0e6]);
+
+/**
+ * Contorno coloreado: cada píxel del borde toma el color de al lado muy
+ * oscurecido y mezclado con el tono del contorno, en vez de negro puro.
+ */
+function selOut(p: Px) {
+  const add: [number, number, number][] = [];
+  for (let y = 0; y < p.h; y++) {
+    for (let x = 0; x < p.w; x++) {
+      if (p.alphaAt(x, y)) continue;
+      for (const [i, j] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        if (!p.alphaAt(x + i, y + j)) continue;
+        add.push([x, y, mixC(darken(p.colorAt(x + i, y + j), 0.7), OUTLINE, 0.5)]);
+        break;
+      }
+    }
+  }
+  for (const [x, y, c] of add) p.set(x, y, c);
+}
+
+/** Hoja de sprites de un personaje: dos cuadros de reposo, el golpe y el dolor, a doble resolución. */
 export function spriteSheet(kind: SpriteKind): Px {
+  const k = SPRITE_RES;
   const [w, h] = SPRITE_SIZE[kind];
-  const sheet = new Px(w * FRAMES, h);
+  const sheet = new Px(w * k * FRAMES, h * k);
   for (let f = 0; f < FRAMES; f++) {
-    let frame = new Px(w, h);
-    DRAW[kind](frame, f === 1 ? 1 : 0, f === POSE_FRAME.attack);
-    if (f === POSE_FRAME.attack) frame = leaned(frame, 2);
-    else if (f === POSE_FRAME.hurt) frame = leaned(frame, -3);
-    frame.outline(OUTLINE);
-    sheet.blit(frame, f * w, 0);
+    let frame = new Px(w * k, h * k);
+    const dy = f === 1 ? 1 : 0;
+    const atk = f === POSE_FRAME.attack;
+    DRAW[kind](scaled(frame, k), dy, atk);
+    DETAIL[kind]?.(frame, dy * k, atk);
+    finish(frame);
+    if (f === POSE_FRAME.attack) frame = leaned(frame, 2 * k);
+    else if (f === POSE_FRAME.hurt) frame = leaned(frame, -3 * k);
+    selOut(frame);
+    sheet.blit(frame, f * w * k, 0);
   }
   return sheet;
 }

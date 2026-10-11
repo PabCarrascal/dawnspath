@@ -3,7 +3,7 @@ import { Rng } from '../../core/rng';
 import * as px from '../pixel';
 import { SpriteKind, spriteSheet } from '../characters';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { crossQuad, floaters, PixelSprite, swaying } from '../sprite';
+import { CHAR_SCALE, crossQuad, floaters, PixelSprite, swaying } from '../sprite';
 import { BOTTOM, Grid, inClear, W, D, wx, wz } from './grid';
 
 type LeafKey = keyof typeof px.LEAF_TONES;
@@ -677,7 +677,7 @@ export class Kit {
    * ruta), con paradas y un leve bamboleo al andar. `y` lo sube (adarve).
    */
   npc(kind: SpriteKind, x: number, z: number, opts: { to?: [number, number]; speed?: number; scale?: number; y?: number; left?: boolean } = {}) {
-    const s = new PixelSprite(spriteSheet(kind).texture(), opts.scale ?? 0.95, 1.4, opts.left ?? false);
+    const s = new PixelSprite(spriteSheet(kind).texture(), (opts.scale ?? 0.95) * CHAR_SCALE, 1.4, opts.left ?? false);
     const y0 = opts.y ?? this.y(x, z);
     s.mesh.position.set(x, y0, z);
     this.group.add(s.mesh);

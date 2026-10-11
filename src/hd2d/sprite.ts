@@ -1,10 +1,13 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Rng } from '../core/rng';
-import { FRAMES, IDLE_FRAMES, Pose, POSE_FRAME } from './characters';
+import { FRAMES, IDLE_FRAMES, Pose, POSE_FRAME, SPRITE_RES } from './characters';
 
-/** Píxeles de sprite por unidad del mundo. */
-export const SPRITE_PPU = 22;
+/** Tamaño de los personajes del grupo y del combate (1 = un píxel base por 1/22 de unidad). */
+export const CHAR_SCALE = 1.28;
+
+/** Píxeles de sprite por unidad del mundo (de la rejilla base; la hoja va a doble resolución). */
+export const SPRITE_PPU = 22 * SPRITE_RES;
 
 /**
  * Luz propia de los personajes: en HD-2D se leen bien aunque esté oscuro. Sube

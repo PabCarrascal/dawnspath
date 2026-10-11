@@ -3,7 +3,7 @@ import type { Biome } from '../../combat/rules/data';
 import { Rng } from '../../core/rng';
 import { SpriteKind, spriteSheet } from '../characters';
 import * as px from '../pixel';
-import { floaters, PixelSprite, snowfall } from '../sprite';
+import { CHAR_SCALE, floaters, PixelSprite, snowfall } from '../sprite';
 import { BIOMES, BiomeDef } from './biomes';
 import { BATTLE, BOTTOM, CellType, D, Grid, slot, W, wx, wz } from './grid';
 import { Kit } from './kit';
@@ -173,7 +173,7 @@ export function buildDiorama(biomeKey: BiomeKey, opts: { seed?: number; scene?: 
   const scene = opts.scene;
   if (scene) {
     (scene.party ?? []).forEach((kind, n) => {
-      const s = new PixelSprite(spriteSheet(kind).texture(), 1.05);
+      const s = new PixelSprite(spriteSheet(kind).texture(), CHAR_SCALE);
       const pos = n < 4 ? slot('party', n + 1) : slot('foe', n - 3);
       s.mesh.position.set(pos.x, 0, pos.z + (n >= 4 ? -0.3 : 0));
       group.add(s.mesh);
@@ -186,7 +186,7 @@ export function buildDiorama(biomeKey: BiomeKey, opts: { seed?: number; scene?: 
     if (scene.fire ?? !!scene.structure) k.campfire(sx + 1.8, sz + 0.5);
     if (scene.loot) k.chest(sx + 2.6, sz + 1.3);
     (scene.garrison ?? []).forEach((kind, n) => {
-      const s = new PixelSprite(spriteSheet(kind).texture(), 1.0, 1.4, true);
+      const s = new PixelSprite(spriteSheet(kind).texture(), CHAR_SCALE * 0.95, 1.4, true);
       s.mesh.position.set(sx + 4.4 + n * 0.9, 0, sz + 0.4);
       group.add(s.mesh);
       party.push(s);
@@ -200,7 +200,7 @@ export function buildDiorama(biomeKey: BiomeKey, opts: { seed?: number; scene?: 
     [wx(21), wz(6.5)],
     [wx(20), wz(13)],
   ].map(([x, z]) => {
-    const s = new PixelSprite(shadeTex, 1.15, 1.1, x > 0);
+    const s = new PixelSprite(shadeTex, CHAR_SCALE * 1.1, 1.1, x > 0);
     s.mesh.position.set(x, 0, z);
     s.mesh.visible = false;
     group.add(s.mesh);

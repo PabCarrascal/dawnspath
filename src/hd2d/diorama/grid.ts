@@ -80,7 +80,7 @@ export const clearCell = (i: number, j: number, margin = 1.12) => inClear(wx(i),
 export function slot(side: 'party' | 'foe', rank: number) {
   const dir = side === 'party' ? -1 : 1;
   return {
-    x: BATTLE.x + dir * (1.0 + (rank - 1) * 1.25),
+    x: BATTLE.x + dir * (1.1 + (rank - 1) * 1.45),
     z: BATTLE.z + (rank % 2 === 0 ? -0.45 : 0.25),
   };
 }
