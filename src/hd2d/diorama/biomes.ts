@@ -236,15 +236,16 @@ const village: BiomeDef = {
     g.fill(13, 12, 14, 15, 'path', 0);
   },
   decorate(k) {
-    const rows: [number, number, number, number, number, 'tile' | 'thatch'][] = [
-      [4.5, 4.4, 2.4, 1.8, 1.6, 'tile'],
-      [9.5, 4.2, 2.0, 1.6, 1.9, 'thatch'],
-      [18.5, 4.4, 2.6, 1.8, 2.0, 'tile'],
-      [23, 4.2, 2.0, 1.6, 1.5, 'thatch'],
+    // Casas de Blender (tools/blender/models/cottage_*.py), cada una con la planta de la casa a la que sustituye.
+    const rows: [string, number, number, number, number, number, 'tile' | 'thatch'][] = [
+      ['cottage_a', 4.5, 4.4, 2.4, 1.8, 1.6, 'tile'],
+      ['cottage_b', 9.5, 4.2, 2.0, 1.6, 1.9, 'thatch'],
+      ['cottage_c', 18.5, 4.4, 2.6, 1.8, 2.0, 'tile'],
+      ['cottage_d', 23, 4.2, 2.0, 1.6, 1.5, 'thatch'],
     ];
-    for (const [i, j, w, d, h, roof] of rows) k.house(wx(i), wz(j), w, d, h, 0, { roof, chimney: k.rng.chance(0.6) });
-    k.house(wx(1.5), wz(13.5), 1.8, 1.6, 1.5, Math.PI / 2, { roof: 'thatch' });
-    k.house(wx(24.2), wz(13.2), 1.8, 1.6, 1.6, -Math.PI / 2, { roof: 'tile' });
+    for (const [model, i, j, w, d, h, roof] of rows) k.model(model, k.house(wx(i), wz(j), w, d, h, 0, { roof, chimney: k.rng.chance(0.6) }));
+    k.model('cottage_e', k.house(wx(1.5), wz(13.5), 1.8, 1.6, 1.5, Math.PI / 2, { roof: 'thatch' }));
+    k.model('cottage_f', k.house(wx(24.2), wz(13.2), 1.8, 1.6, 1.6, -Math.PI / 2, { roof: 'tile' }));
     k.well(wx(7.5), wz(6.7));
     k.stall(wx(16.5), wz(6.6), 0xc83a2a);
     k.stall(wx(20.5), wz(6.8), 0x2a6ac8);

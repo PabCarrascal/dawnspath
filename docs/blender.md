@@ -31,9 +31,9 @@ El mapa del sendero también sale de Blender: `tools/blender/scenes/map.py` cons
 
 Renderizarlo tarda un minuto y medio.
 
-## Edificios del castillo
+## Edificios
 
-La herrería, la taberna y la logia son modelos 3D hechos en Blender (`tools/blender/models/<nombre>.py`) que se exportan a `public/models/<nombre>.glb` y que la maqueta del castillo carga en lugar de las casas generadas por código.
+La herrería, la taberna y la logia del castillo, y las seis casas de las aldeas, son modelos 3D hechos en Blender (`tools/blender/models/<nombre>.py`) que se exportan a `public/models/<nombre>.glb` y que las maquetas cargan en lugar de las casas generadas por código. Las de aldea (`cottage_a` … `cottage_f`) salen de una misma pieza, `cottage()`, con opciones: paredes de yeso con entramado, tablas o piedra; teja o paja; piso volado; chimenea; postigos, jardineras, porche, cobertizo o leña.
 
 - **Texturas y luz del juego:** los materiales que se llaman como una textura del juego (`bricks`, `planks`, `plaster`, `slate`, `roof`, `thatch`) toman esa textura al cargar, y `window` y `fire` se encienden de noche como el resto de ventanas y fuegos. Cada cara lleva la textura entera, como las cajas del juego.
 - **Medidas:** metros, con el origen en el centro de la planta a ras de suelo y la fachada mirando a −Y en Blender (hacia la cámara en el juego). Cada edificio ocupa la misma planta que la casa a la que sustituye, así que la fragua, el andamio y las etiquetas siguen en su sitio.
@@ -58,7 +58,7 @@ La pantalla de carga muestra un amanecer sobre el castillo del Alba: `tools/blen
 | `tools/blender/palette.py` | La paleta `C` de `characters.ts`, en rampas de tres tonos. Si cambia una, hay que cambiar la otra. |
 | `tools/blender/sprites/<modelo>.py` | Un archivo por personaje. |
 | `tools/blender/scenes/splash.py` | El amanecer de la portada (vídeo). |
-| `tools/blender/models/<nombre>.py` | Modelos 3D de los edificios del castillo (GLB); piezas comunes en `modeling.py`. |
+| `tools/blender/models/<nombre>.py` | Modelos 3D de los edificios del castillo y las casas de aldea (GLB); piezas comunes en `modeling.py`. |
 | `tools/blender/scenes/map.py` | La escena del mapa del sendero; sus datos, en `scenes/map.json` (de `export-map.ts`). |
 
 ## Cómo se renderiza una hoja
