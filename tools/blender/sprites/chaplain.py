@@ -81,7 +81,7 @@ def build(rig):
     rig.pivot("head", (0, 0, 0.8), "hips")
     rig.part("ball", "head", (0, 0, 0), (0.5, 0.5, 0.5), SKIN)
     for yaw in (-16, -56):
-        rig.part("box", "head", _on_face(yaw, 0.24, -0.05), (0.04, 0.045, 0.08), EYE, rot=(0, 0, yaw))
+        rig.part("box", "head", _on_face(yaw, 0.24, -0.05), (0.04, 0.045, 0.08), EYE, rot=(0, 0, yaw), mark="eye")
     rig.part("box", "head", _on_face(-36, 0.225, -0.16), (0.03, 0.06, 0.025), MOUTH, rot=(0, 0, -36))
     # Toca: gorro blanco, ribete dorado en la frente y paño que cae por detrás hasta los hombros.
     rig.part("ball", "head", (-0.02, 0, 0.15), (0.58, 0.57, 0.42), WHITE)
@@ -106,7 +106,7 @@ def build(rig):
     rig.pivot("lantern", (0, 0, -0.31), "forearm")
     rig.part("box", "lantern", (0, 0, -0.07), (0.025, 0.025, 0.12), IRON)
     rig.part("box", "lantern", (0, 0, -0.14), (0.2, 0.2, 0.04), IRON)
-    rig.part("box", "lantern", (0, 0, -0.27), (0.16, 0.16, 0.22), GLOW)
+    rig.part("box", "lantern", (0, 0, -0.27), (0.16, 0.16, 0.22), GLOW, mark="glow")
     rig.part("box", "lantern", (0, 0, -0.4), (0.2, 0.2, 0.04), IRON)
 
 

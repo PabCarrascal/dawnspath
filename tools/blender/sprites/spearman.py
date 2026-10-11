@@ -47,7 +47,7 @@ def build(rig):
     rig.part("ball", "head", (0, 0, 0), (0.5, 0.5, 0.5), SKIN)
     # La cara mira algo hacia la cámara (yaw negativo), como en el dibujado.
     for yaw in (-12, -50):
-        rig.part("box", "head", _on_face(yaw, 0.24, -0.04), (0.04, 0.045, 0.08), EYE, rot=(0, 0, yaw))
+        rig.part("box", "head", _on_face(yaw, 0.24, -0.04), (0.04, 0.045, 0.08), EYE, rot=(0, 0, yaw), mark="eye")
     # Barba que cubre mentón y quijada, sin boca a la vista.
     rig.part("ball", "head", (0.1, -0.03, -0.17), (0.32, 0.4, 0.2), BEARD)
     # Capacete: copa redonda y ala ancha y plana.

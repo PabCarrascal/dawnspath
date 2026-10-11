@@ -100,6 +100,38 @@ def _mail(y, x):
 PATTERNS = {"mail": (_mail, 0.14)}
 
 
+def _eye(put, cx, cy):
+    """Como eyes() de characters.ts: blanco, pupila mirando a la derecha, brillo y ceja."""
+    x, y = round(cx - 0.5), round(cy - 1.5)
+    for j in range(4):
+        for i in range(-1, 2):
+            put(x + i, y + j, 0xF6F0E6)
+    for j in range(1, 4):
+        for i in range(2):
+            put(x + i, y + j, 0x2A1A24)
+    put(x, y + 1, 0xFFFFFF)
+    for i in range(-1, 3):
+        put(x + i, y - 2, 0x6A3E22)
+
+
+def _glow(put, x0, y0, x1, y1):
+    """Como el halo del farol en characters.ts: rayas de luz a los lados y encima."""
+    for y in range(y0 + 1, y1):
+        put(x0 - 3, y, 0xFFF2B0)
+        put(x1 + 3, y, 0xFFF2B0)
+    for x in range(x0 + 1, x1):
+        put(x, y0 - 3, 0xFFF2B0)
+
+
+# Piezas que marcan dónde pintar un detalle a mano tras el render: el 3D decide
+# si se ven y dónde caen; el dibujo es el mismo que el del juego.
+# "eye" estampa un ojo en el centro de la pieza y pasa por el acabado como el resto;
+# "glow" rodea la pieza de rayas de luz al final, para que no les toque ni borde ni contorno.
+DECALS = {"eye": _eye, "glow": _glow}
+LIGHTS = {"glow"}
+MARKS = [*PATTERNS, *DECALS]
+
+
 class Rig:
     """Piezas colgadas de pivotes: posar es girar pivotes alrededor del eje Y (+ = hacia delante)."""
 
@@ -128,7 +160,7 @@ class Rig:
     def part(self, kind, parent, loc, size, color, rot=(0, 0, 0), mark=None, **shape):
         """
         Pieza de tamaño `size` (caja envolvente), en coordenadas de su pivote; `mark`
-        le pone una trama de PATTERNS y `shape` pasa opciones a la primitiva
+        le pone una trama de PATTERNS o un detalle de DECALS, y `shape` pasa opciones a la primitiva
         (taper del frustum; folds, taper, depth y span de pleats).
         """
         o = ADD[kind](**shape)
@@ -147,8 +179,7 @@ class Rig:
         if mark:
             # Las piezas marcadas se pintan en la pasada plana con un color casi igual que las
             # delata; luego toman los tonos de su rampa como las demás.
-            assert ramp, "las piezas con trama necesitan una rampa"
-            c ^= 0x000008 * (1 + list(PATTERNS).index(mark))
+            c ^= 0x000008 * (1 + MARKS.index(mark))
             self.marks[c] = mark
         if c not in self.mats:
             m = bpy.data.materials.new(f"#{c:06x}")
@@ -271,12 +302,58 @@ def _shade(flat, lit, ramps):
     return out
 
 
+def _blobs(mask):
+    """Grupos de píxeles conectados de `mask`, como listas de (x, y)."""
+    seen = np.zeros_like(mask)
+    out = []
+    for y0, x0 in zip(*np.nonzero(mask)):
+        if seen[y0, x0]:
+            continue
+        seen[y0, x0] = True
+        todo, blob = [(y0, x0)], []
+        while todo:
+            y, x = todo.pop()
+            blob.append((x, y))
+            for j, i in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+                if 0 <= j < mask.shape[0] and 0 <= i < mask.shape[1] and mask[j, i] and not seen[j, i]:
+                    seen[j, i] = True
+                    todo.append((j, i))
+        out.append(blob)
+    return out
+
+
+def _decals(img, flat, marks, light=False):
+    """Pinta los detalles de DECALS (solo los de LIGHTS si `light`) donde han caído sus piezas."""
+    # Vistas de arriba abajo, como el lienzo del juego.
+    top, ftop = img[::-1], flat[::-1]
+    h, w = top.shape[:2]
+
+    def put(x, y, c):
+        if 0 <= x < w and 0 <= y < h:
+            top[y, x, :3] = rgb(c)
+            top[y, x, 3] = 1
+
+    for key, mark in marks.items():
+        if mark not in DECALS or (mark in LIGHTS) != light:
+            continue
+        mask = (ftop[..., 3] > 0.5) & (np.abs(ftop[..., :3] - rgb(key)).max(axis=-1) <= 2.5 / 255)
+        for blob in _blobs(mask):
+            xs, ys = [p[0] for p in blob], [p[1] for p in blob]
+            if mark == "eye":
+                _eye(put, sum(xs) / len(xs), sum(ys) / len(ys))
+            else:
+                _glow(put, min(xs), min(ys), max(xs), max(ys))
+    return img
+
+
 def _patterns(img, flat, marks):
     """Pinta las tramas sobre los píxeles de las piezas marcadas."""
     h, w = img.shape[:2]
     # Filas contadas desde arriba, como en el lienzo del juego.
     y, x = np.mgrid[h - 1 : -1 : -1, 0:w]
     for key, mark in marks.items():
+        if mark not in PATTERNS:
+            continue
         which, amount = PATTERNS[mark]
         sel = (flat[..., 3] > 0.5) & (np.abs(flat[..., :3] - rgb(key)).max(axis=-1) <= 2.5 / 255) & which(y, x)
         img[sel, :3] = _mix(img[sel, :3], rgb(SHADOW), amount)
@@ -361,7 +438,9 @@ def sheet(model, path):
         model.pose(rig, f)
         flat = _render(os.path.join(tmp, f"flat{f}.png"), "BLENDER_WORKBENCH")
         lit = _render(os.path.join(tmp, f"lit{f}.png"), "CYCLES", white)
-        frames.append(_outline(_finish(_patterns(_shade(flat, lit, rig.ramps), flat, rig.marks))))
+        img = _patterns(_shade(flat, lit, rig.ramps), flat, rig.marks)
+        img = _outline(_finish(_decals(img, flat, rig.marks)))
+        frames.append(_decals(img, flat, rig.marks, light=True))
     os.makedirs(os.path.dirname(path), exist_ok=True)
     _save(np.concatenate(frames, axis=1), path)
     print(f"sprite: {path} ({w * FRAMES}×{h})")

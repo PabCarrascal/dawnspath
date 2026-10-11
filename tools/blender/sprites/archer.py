@@ -71,7 +71,7 @@ def build(rig):
     rig.part("ball", "head", (0, 0, 0), (0.5, 0.5, 0.5), SKIN)
     # La cara mira algo hacia la cámara (yaw negativo), como en el dibujado.
     for yaw in (-8, -48):
-        rig.part("box", "head", _on_face(yaw, 0.24, -0.05), (0.04, 0.045, 0.08), EYE, rot=(0, 0, yaw))
+        rig.part("box", "head", _on_face(yaw, 0.24, -0.05), (0.04, 0.045, 0.08), EYE, rot=(0, 0, yaw), mark="eye")
     rig.part("box", "head", _on_face(-28, 0.225, -0.16), (0.03, 0.06, 0.025), MOUTH, rot=(0, 0, -28))
     # Mechón de pelo bajo el borde de la capucha.
     rig.part("ball", "head", _on_face(-30, 0.2, 0.09), (0.12, 0.2, 0.09), HAIR, rot=(0, 0, -30))
