@@ -60,7 +60,7 @@ export const SKILLS: Record<string, Skill> = {
   volley: {
     id: 'volley', name: 'Lluvia de flechas', icon: '⋮',
     desc: 'Cae sobre la retaguardia enemiga.',
-    from: [3, 4], target: { side: 'enemy', ranks: [3, 4], all: true }, dmg: 0.6, acc: 0.85,
+    from: [3, 4], target: { side: 'enemy', ranks: [3, 4], all: true }, dmg: 0.8, acc: 0.85,
   },
   pinpoint: {
     id: 'pinpoint', name: 'Tiro certero', icon: '✛',

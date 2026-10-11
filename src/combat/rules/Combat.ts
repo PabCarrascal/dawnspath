@@ -20,6 +20,11 @@ export const BAL = {
   /** Por debajo de este estrés, una aflicción se disipa. */
   composure: 40,
   initiativeRoll: 6,
+  /**
+   * Puntería extra de los ataques de cada bando. Sin ella el grupo fallaba uno de
+   * cada cinco golpes; los enemigos reciben algo menos para no abaratar la campaña.
+   */
+  hitBonus: { party: 0.08, foe: 0.02 } as Record<Side, number>,
 };
 
 /** Opción de acción: una habilidad sobre un objetivo concreto. */
@@ -141,7 +146,7 @@ export class Combat {
   hitChance(actor: Fighter, skill: Skill, target: Fighter): number {
     if (skill.target.side !== 'enemy') return 1;
     const steady = this.has(target, 'steady') ? 0.1 : 0;
-    return clamp((skill.acc ?? 0.9) + actor.acc - target.dodge - steady, 0.05, 0.95);
+    return clamp((skill.acc ?? 0.9) + actor.acc + BAL.hitBonus[actor.side] - target.dodge - steady, 0.05, 0.95);
   }
 
   critChance(actor: Fighter, skill: Skill): number {
