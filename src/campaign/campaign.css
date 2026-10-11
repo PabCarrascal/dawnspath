@@ -663,9 +663,9 @@ em.affl {
   border: 6px solid #2a1c10;
   box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.6);
 }
-.cp-map-frame img,
-.cp-map-frame canvas,
-.cp-map-frame svg {
+.cp-map-frame > .cp-map-art,
+.cp-map-frame > canvas,
+.cp-map-frame > svg {
   position: absolute;
   inset: 0;
   width: 100%;
